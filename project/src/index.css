@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-ink-50 text-ink-900 antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  .dark body {
+    @apply bg-ink-950 text-ink-100;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-6 py-3 bg-ink-900 text-ink-50 font-medium tracking-wide transition-all duration-200 hover:bg-ink-800 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .dark .btn-primary {
+    @apply bg-ink-50 text-ink-900 hover:bg-ink-200;
+  }
+  .btn-secondary {
+    @apply px-6 py-3 border border-ink-300 text-ink-900 font-medium tracking-wide transition-all duration-200 hover:border-ink-900 hover:bg-ink-100 active:scale-[0.98];
+  }
+  .dark .btn-secondary {
+    @apply border-ink-700 text-ink-100 hover:border-ink-500 hover:bg-ink-900;
+  }
+  .btn-accent {
+    @apply px-6 py-3 bg-accent-600 text-white font-medium tracking-wide transition-all duration-200 hover:bg-accent-700 active:scale-[0.98] disabled:opacity-50;
+  }
+  .input-field {
+    @apply w-full px-4 py-3 bg-transparent border border-ink-200 text-ink-900 placeholder-ink-400 focus:outline-none focus:border-ink-900 transition-colors duration-200;
+  }
+  .dark .input-field {
+    @apply border-ink-700 text-ink-100 placeholder-ink-500 focus:border-ink-400;
+  }
+  .card-surface {
+    @apply bg-white border border-ink-200 transition-all duration-300;
+  }
+  .dark .card-surface {
+    @apply bg-ink-900 border-ink-800;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-ink-300 rounded-full;
+}
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-ink-700;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-ink-400;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-ink-600;
+}
+
+/* Image zoom cursor */
+.zoom-cursor {
+  cursor: zoom-in;
+}
