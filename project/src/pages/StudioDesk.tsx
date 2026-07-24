@@ -24,10 +24,8 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
 
   useEffect(() => {
     async function load() {
-      // 1. Get authenticated user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user || !profile?.artist_id) {
+      // Use authenticated session for security
+      if (!session?.user?.id || !profile?.artist_id) {
         setLoading(false);
         return;
       }
@@ -40,11 +38,11 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
         .maybeSingle();
       setArtist(artistData as Artist | null);
 
-      // 2. Fetch artworks dynamically based on the logged-in user.id
+      // Fetch auctions for this user's artworks
       const { data: artworkData } = await supabase
         .from('artworks')
         .select('id, artist:artists(*)')
-        .eq('user_id', user.id); // Dynamic filter
+        .eq('user_id', session.user.id);
 
       const artistMap = new Map<string, Artist>();
       (artworkData || []).forEach((aw: any) => {
@@ -74,7 +72,7 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
       setLoading(false);
     }
     load();
-  }, [profile]); // Dependencies simplified
+  }, [session, profile]);
 
   const activeAuctions = auctions.filter((a) => a.status === 'live' || a.status === 'flash');
   const upcomingAuctions = auctions.filter((a) => a.status === 'upcoming');
@@ -104,10 +102,141 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
 
   return (
     <div className="max-w-[1600px] mx-auto px-6 lg:px-10 py-8">
-      {/* Header, Stats, and Sections remain exactly as your original implementation */}
-      {/* ... (Existing JSX remains unchanged) ... */}
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-accent-500 font-semibold mb-2">The Studio Desk</p>
+          <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight">Seller Dashboard</h1>
+          <p className="text-sm text-ink-500 mt-2">Welcome back, {profile?.display_name}</p>
+        </div>
+        <button
+          onClick={() => setView('create')}
+          className="btn-primary text-sm flex items-center gap-2 self-start"
+        >
+          <Plus className="w-4 h-4" />
+          Create New Listing
+        </button>
+      </div>
+
+      {view === 'dashboard' ? (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="card-surface p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Gavel className="w-4 h-4 text-accent-500" />
+                <span className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold">Active</span>
+              </div>
+              <p className="font-mono text-2xl font-bold">{activeAuctions.length}</p>
+            </div>
+            <div className="card-surface p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-4 h-4 text-emerald-500" />
+                <span className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold">Revenue</span>
+              </div>
+              <p className="font-mono text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+            </div>
+            <div className="card-surface p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldCheck className="w-4 h-4 text-gold-500" />
+                <span className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold">Total Bids</span>
+              </div>
+              <p className="font-mono text-2xl font-bold">{totalBids}</p>
+            </div>
+            <div className="card-surface p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Plus className="w-4 h-4 text-ink-500" />
+                <span className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold">Listings</span>
+              </div>
+              <p className="font-mono text-2xl font-bold">{auctions.length}</p>
+            </div>
+          </div>
+
+          {/* Active auctions */}
+          <section className="mb-8">
+            <h2 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-4">Active Auctions</h2>
+            {loading ? (
+              <div className="card-surface p-8 text-center text-ink-400 text-sm">Loading...</div>
+            ) : activeAuctions.length === 0 ? (
+              <div className="card-surface p-8 text-center">
+                <p className="text-ink-400 text-sm mb-4">No active auctions. Create a listing to get started.</p>
+                <button onClick={() => setView('create')} className="btn-secondary text-sm">
+                  Create Listing
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activeAuctions.map((a) => (
+                  <AuctionRow key={a.id} auction={a} navigate={navigate} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {upcomingAuctions.length > 0 && (
+            <section className="mb-8">
+              <h2 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-4">Upcoming</h2>
+              <div className="space-y-3">
+                {upcomingAuctions.map((a) => (
+                  <AuctionRow key={a.id} auction={a} navigate={navigate} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {endedAuctions.length > 0 && (
+            <section>
+              <h2 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-4">Ended Auctions</h2>
+              <div className="space-y-3">
+                {endedAuctions.map((a) => (
+                  <AuctionRow key={a.id} auction={a} navigate={navigate} />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      ) : (
+        <div className="text-center p-8">Feature not fully active in this view yet. Please return to dashboard.</div>
+      )}
     </div>
   );
 }
 
-// ... Keep existing AuctionRow and CreateListingForm components below ...
+function AuctionRow({ auction, navigate }: { auction: AuctionWithDetails; navigate: (p: string) => void }) {
+  const { artwork, artist } = auction;
+  const reserveMet = auction.current_bid >= artwork.reserve_price;
+
+  return (
+    <button
+      onClick={() => navigate(`auction/${auction.id}`)}
+      className="card-surface w-full flex items-center gap-4 p-4 text-left hover:border-ink-900 dark:hover:border-ink-400 transition-colors group"
+    >
+      <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden flex-shrink-0">
+        <img src={artwork.image_url} alt="" className="w-full h-full object-cover" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          {auction.is_flash ? <Badge variant="flash" /> : <Badge variant="live" />}
+          {artwork.studio_verified && <Badge variant="verified" />}
+        </div>
+        <h3 className="font-serif text-sm font-semibold truncate group-hover:text-accent-600 dark:group-hover:text-accent-400 transition-colors">
+          {artwork.title}
+        </h3>
+        <p className="text-xs text-ink-500">{artist?.name} · {artwork.medium}</p>
+      </div>
+      <div className="hidden sm:block text-right">
+        <p className="font-mono text-sm font-bold">{formatCurrency(auction.current_bid || artwork.starting_bid)}</p>
+        <p className="text-xs text-ink-400">{auction.bid_count} bids · {reserveMet ? 'Reserve met' : 'Reserve pending'}</p>
+      </div>
+      <div className="flex-shrink-0">
+        {auction.status === 'live' || auction.status === 'flash' ? (
+          <CountdownTimer endTime={auction.end_time} variant="minimal" />
+        ) : auction.status === 'upcoming' ? (
+          <span className="text-xs text-ink-400">Starts soon</span>
+        ) : (
+          <span className="text-xs text-ink-400">Ended</span>
+        )}
+      </div>
+    </button>
+  );
+}
