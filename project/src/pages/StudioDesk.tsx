@@ -7,6 +7,7 @@ import { Badge } from '@/components/Badge';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
+import { tryCloseAuction } from '@/lib/closeAuction';
 
 interface StudioDeskProps {
   navigate: (path: string) => void;
@@ -61,6 +62,12 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
         .in('artwork_id', artworkIds)
         .order('created_at', { ascending: false });
 
+      // Sweep for and close any of this artist's own overdue auctions -
+      // don't rely solely on other visitors having viewed the gallery.
+      (auctionData || [])
+        .filter((a: any) => a.status !== 'ended' && new Date(a.end_time).getTime() <= Date.now())
+        .forEach((a: any) => tryCloseAuction(a.id));
+
       const result: AuctionWithDetails[] = (auctionData || []).map((a: any) => ({
         ...a,
         artwork: a.artwork,
@@ -75,10 +82,27 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
 
   const activeAuctions = auctions.filter((a) => a.status === 'live' || a.status === 'flash');
   const upcomingAuctions = auctions.filter((a) => a.status === 'upcoming');
-  const endedAuctions = auctions.filter((a) => a.status === 'ended');
+  const pendingReviewAuctions = auctions.filter((a) => a.outcome === 'pending_seller_review');
+  const endedAuctions = auctions.filter((a) => a.status === 'ended' && a.outcome !== 'pending_seller_review');
 
   const totalRevenue = endedAuctions.reduce((sum, a) => sum + a.current_bid, 0);
   const totalBids = auctions.reduce((sum, a) => sum + a.bid_count, 0);
+
+  const resolveSale = async (auctionId: string, accept: boolean) => {
+    const { error } = await supabase.rpc('resolve_pending_sale', {
+      p_auction_id: auctionId,
+      p_accept: accept,
+    });
+    if (error) {
+      showToast(error.message || 'Failed to record your decision.', 'error');
+      return;
+    }
+    showToast(
+      accept ? 'Sale accepted - order created and moved to escrow.' : 'Sale declined.',
+      accept ? 'success' : 'info'
+    );
+    window.location.reload();
+  };
 
   if (!session) {
     return (
@@ -150,6 +174,45 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
               <p className="font-mono text-2xl font-bold">{auctions.length}</p>
             </div>
           </div>
+
+          {/* Pending seller review - reserve wasn't met, artist must decide */}
+          {pendingReviewAuctions.length > 0 && (
+            <section className="mb-8">
+              <h2 className="text-xs uppercase tracking-widest font-semibold text-gold-600 mb-4">
+                Pending Your Review · Reserve Not Met
+              </h2>
+              <div className="space-y-3">
+                {pendingReviewAuctions.map((a) => (
+                  <div key={a.id} className="card-surface p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden flex-shrink-0">
+                      <img src={a.artwork.image_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-serif text-sm font-semibold truncate">{a.artwork.title}</h3>
+                      <p className="text-xs text-ink-500">
+                        Highest bid <span className="font-mono font-semibold">{formatCurrency(a.current_bid)}</span>
+                        {' '}· Reserve was <span className="font-mono">{formatCurrency(a.artwork.reserve_price)}</span>
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => resolveSale(a.id, false)}
+                        className="btn-secondary text-xs py-2 px-4"
+                      >
+                        Decline
+                      </button>
+                      <button
+                        onClick={() => resolveSale(a.id, true)}
+                        className="btn-accent text-xs py-2 px-4"
+                      >
+                        Accept {formatCurrency(a.current_bid)}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Active auctions */}
           <section className="mb-8">

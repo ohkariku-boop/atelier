@@ -7,6 +7,7 @@ import { CountdownTimer } from '@/components/CountdownTimer';
 import { Badge } from '@/components/Badge';
 import { ImageZoom, FullscreenViewer } from '@/components/ImageZoom';
 import { BidDrawer } from '@/components/BidDrawer';
+import { tryCloseAuction } from '@/lib/closeAuction';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 
@@ -62,6 +63,26 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
     loadAuction();
     loadBids();
   }, [loadAuction, loadBids]);
+
+  // Lazily close this auction if its timer has passed - there is no cron
+  // job in this stack, so viewing the page is what actually triggers
+  // winner determination / escrow order creation.
+  useEffect(() => {
+    if (!auction) return;
+    if (auction.status === 'ended') return;
+    if (new Date(auction.end_time).getTime() > Date.now()) return;
+
+    tryCloseAuction(auction.id).then((result) => {
+      if (result.outcome) {
+        loadAuction();
+        if (result.outcome === 'sold') {
+          showToast('Auction closed - reserve met, sold to the highest bidder!', 'success');
+        } else if (result.outcome === 'pending_seller_review') {
+          showToast('Auction closed - reserve not met, awaiting seller review.', 'info');
+        }
+      }
+    });
+  }, [auction, loadAuction, showToast]);
 
   // Realtime subscriptions
   useEffect(() => {

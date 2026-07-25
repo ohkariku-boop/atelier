@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import type { AuctionWithDetails } from '@/types';
 import { ArtworkCard } from '@/components/ArtworkCard';
 import { MEDIUMS } from '@/lib/theme';
+import { tryCloseAuction } from '@/lib/closeAuction';
 
 interface GalleryFloorProps {
   navigate: (path: string) => void;
@@ -53,6 +54,15 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
 
       setAuctions(result);
       setLoading(false);
+
+      // Lazily close any overdue auctions - there is no cron job in this
+      // stack, so someone loading the gallery is what actually triggers
+      // closing. Fire-and-forget; each auction's own detail page will
+      // reflect the outcome once closed.
+      const overdue = result.filter(
+        (a) => a.status !== 'ended' && new Date(a.end_time).getTime() <= Date.now()
+      );
+      overdue.forEach((a) => tryCloseAuction(a.id));
     }
     load();
   }, []);

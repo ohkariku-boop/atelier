@@ -30,11 +30,13 @@ export interface Artwork {
 }
 
 export type AuctionStatus = 'live' | 'flash' | 'upcoming' | 'ended';
+export type AuctionOutcome = 'sold' | 'pending_seller_review' | 'declined' | 'no_bids' | null;
 
 export interface Auction {
   id: string;
   artwork_id: string;
   status: AuctionStatus;
+  outcome: AuctionOutcome;
   start_time: string;
   end_time: string;
   current_bid: number;
@@ -65,6 +67,9 @@ export interface Order {
   shipping_tier: ShippingTier;
   status: OrderStatus;
   tracking_number: string | null;
+  receipt_number: string | null;
+  buyer_email: string | null;
+  paid_at: string | null;
   created_at: string;
 }
 

@@ -212,6 +212,27 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery }: OrderCardProp
             </div>
           </div>
 
+          {/* Receipt confirmation */}
+          <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                Purchase Confirmed
+              </p>
+            </div>
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 leading-relaxed">
+              You purchased <span className="font-semibold">{artwork?.title}</span> for{' '}
+              <span className="font-mono font-semibold">{formatCurrencyPrecise(order.amount)}</span> plus{' '}
+              <span className="font-mono font-semibold">{formatCurrencyPrecise(order.shipping_cost)}</span> shipping
+              — total <span className="font-mono font-semibold">{formatCurrencyPrecise(order.amount + order.shipping_cost)}</span>.
+            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-emerald-600 dark:text-emerald-500">
+              {order.receipt_number && <span>Receipt #{order.receipt_number}</span>}
+              {order.paid_at && <span>{new Date(order.paid_at).toLocaleString()}</span>}
+              {order.buyer_email && <span>Sent to {order.buyer_email}</span>}
+            </div>
+          </div>
+
           {/* Tracking timeline */}
           <div className="mb-6">
             <div className="flex items-center justify-between relative">
