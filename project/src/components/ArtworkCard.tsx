@@ -46,12 +46,12 @@ export function ArtworkCard({ auction, onClick }: ArtworkCardProps) {
       <div className="p-5">
         <div className="flex items-center gap-2 mb-2">
           <img
-            src={artist.avatar_url || ''}
-            alt={artist.name}
-            className="w-5 h-5 rounded-full object-cover"
+            src={artist?.avatar_url || ''}
+            alt={artist?.name || 'Artist'}
+            className="w-5 h-5 rounded-full object-cover bg-ink-200 dark:bg-ink-700"
           />
-          <span className="text-xs text-ink-500 font-medium">{artist.name}</span>
-          {artist.studio_verified && <ShieldCheck className="w-3 h-3 text-emerald-500" />}
+          <span className="text-xs text-ink-500 font-medium">{artist?.name || 'Unknown artist'}</span>
+          {artist?.studio_verified && <ShieldCheck className="w-3 h-3 text-emerald-500" />}
         </div>
 
         <h3 className="font-serif text-lg font-semibold leading-tight mb-1 group-hover:text-accent-600 dark:group-hover:text-accent-400 transition-colors">

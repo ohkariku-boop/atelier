@@ -85,7 +85,7 @@ export interface Profile {
 
 export interface AuctionWithDetails extends Auction {
   artwork: Artwork;
-  artist: Artist;
+  artist: Artist | undefined;
 }
 
 export interface OrderWithDetails extends Order {
