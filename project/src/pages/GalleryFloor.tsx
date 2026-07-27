@@ -232,6 +232,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
                   key={auction.id}
                   auction={auction}
                   onClick={() => navigate(`auction/${auction.id}`)}
+                  onArtistClick={(artistId) => navigate(`artist/${artistId}`)}
                 />
               ))}
             </div>

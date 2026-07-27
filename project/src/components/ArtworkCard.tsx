@@ -7,9 +7,10 @@ import { Badge } from './Badge';
 interface ArtworkCardProps {
   auction: AuctionWithDetails;
   onClick: () => void;
+  onArtistClick?: (artistId: string) => void;
 }
 
-export function ArtworkCard({ auction, onClick }: ArtworkCardProps) {
+export function ArtworkCard({ auction, onClick, onArtistClick }: ArtworkCardProps) {
   const { artwork, artist, status, is_flash } = auction;
   const reserveMet = auction.current_bid >= artwork.reserve_price;
 
@@ -44,13 +45,21 @@ export function ArtworkCard({ auction, onClick }: ArtworkCardProps) {
       </div>
 
       <div className="p-5">
-        <div className="flex items-center gap-2 mb-2">
+        <div
+          className="flex items-center gap-2 mb-2 w-fit"
+          onClick={(e) => {
+            if (onArtistClick && artist?.id) {
+              e.stopPropagation();
+              onArtistClick(artist.id);
+            }
+          }}
+        >
           <img
             src={artist?.avatar_url || ''}
             alt={artist?.name || 'Artist'}
             className="w-5 h-5 rounded-full object-cover bg-ink-200 dark:bg-ink-700"
           />
-          <span className="text-xs text-ink-500 font-medium">{artist?.name || 'Unknown artist'}</span>
+          <span className="text-xs text-ink-500 font-medium hover:underline">{artist?.name || 'Unknown artist'}</span>
           {artist?.studio_verified && <ShieldCheck className="w-3 h-3 text-emerald-500" />}
         </div>
 

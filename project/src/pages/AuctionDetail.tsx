@@ -203,7 +203,10 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
             {artwork.title}
           </h1>
 
-          <button className="flex items-center gap-2 mb-6 group">
+          <button
+            className="flex items-center gap-2 mb-6 group"
+            onClick={() => artist?.id && navigate(`artist/${artist.id}`)}
+          >
             <img src={artist?.avatar_url || ''} alt={artist?.name} className="w-8 h-8 rounded-full object-cover" />
             <div className="text-left">
               <p className="text-sm font-semibold group-hover:text-accent-600 dark:group-hover:text-accent-400 transition-colors">

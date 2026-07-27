@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 export type Route =
   | { name: 'gallery' }
   | { name: 'auction'; auctionId: string }
+  | { name: 'artist'; artistId: string }
   | { name: 'studio' }
   | { name: 'orders' }
   | { name: 'auth' };
@@ -12,6 +13,9 @@ function parseHash(): Route {
   const parts = hash.split('/');
   if (parts[0] === 'auction' && parts[1]) {
     return { name: 'auction', auctionId: parts[1] };
+  }
+  if (parts[0] === 'artist' && parts[1]) {
+    return { name: 'artist', artistId: parts[1] };
   }
   if (parts[0] === 'studio') return { name: 'studio' };
   if (parts[0] === 'orders') return { name: 'orders' };

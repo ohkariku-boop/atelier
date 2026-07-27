@@ -7,6 +7,7 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { GalleryFloor } from '@/pages/GalleryFloor';
 import { AuctionDetail } from '@/pages/AuctionDetail';
+import { ArtistProfile } from '@/pages/ArtistProfile';
 import { StudioDesk } from '@/pages/StudioDesk';
 import { OrderTracking } from '@/pages/OrderTracking';
 import { AuthPage } from '@/pages/AuthPage';
@@ -39,6 +40,8 @@ function AppContent() {
           <GalleryFloor navigate={navigate} />
         ) : route.name === 'auction' ? (
           <AuctionDetail auctionId={route.auctionId} navigate={navigate} />
+        ) : route.name === 'artist' ? (
+          <ArtistProfile artistId={route.artistId} navigate={navigate} />
         ) : route.name === 'studio' ? (
           <StudioDesk navigate={navigate} />
         ) : route.name === 'orders' ? (
