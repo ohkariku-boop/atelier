@@ -1,7 +1,7 @@
 export interface Artist {
   id: string;
   name: string;
-  bio: string | null;
+  biography: string | null;
   location: string | null;
   avatar_url: string | null;
   studio_verified: boolean;

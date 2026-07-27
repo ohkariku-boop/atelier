@@ -380,7 +380,7 @@ function CreatorStudio({ auction }: { auction: AuctionWithDetails }) {
             )}
           </div>
           <p className="text-xs text-ink-500 mb-2">{artist?.location}</p>
-          <p className="text-sm text-ink-600 dark:text-ink-400 leading-relaxed">{artist?.bio}</p>
+          <p className="text-sm text-ink-600 dark:text-ink-400 leading-relaxed">{artist?.biography}</p>
         </div>
       </div>
 
