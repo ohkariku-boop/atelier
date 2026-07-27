@@ -80,7 +80,16 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
     let result = [...auctions];
 
     if (selectedMediums.size > 0) {
-      result = result.filter((a) => selectedMediums.has(a.artwork.medium));
+      // Real artwork.medium values are descriptive (e.g. "Oil on Linen",
+      // "Acrylic and Oil Pastel on Canvas") rather than the bare category
+      // labels shown in the filter UI - exact equality would only ever
+      // match the rare artwork whose medium happens to be the bare word
+      // itself. Match by substring instead so "Oil" correctly matches
+      // "Oil on Linen", "Impasto Oil on Canvas", etc.
+      result = result.filter((a) => {
+        const medium = a.artwork.medium.toLowerCase();
+        return Array.from(selectedMediums).some((m) => medium.includes(m.toLowerCase()));
+      });
     }
 
     if (searchQuery) {
