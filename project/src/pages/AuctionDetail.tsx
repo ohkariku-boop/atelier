@@ -27,6 +27,8 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('auction');
+  const [editingReserve, setEditingReserve] = useState(false);
+  const [reserveInput, setReserveInput] = useState('');
 
   const loadAuction = useCallback(async () => {
     const { data: auctionData, error } = await supabase
@@ -138,6 +140,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   const { artwork, artist, status, is_flash } = auction;
   const reserveMet = auction.current_bid >= artwork.reserve_price;
   const shipping = SHIPPING_RATES[artwork.shipping_tier];
+  const isOwner = !!session && session.user.id === artwork.user_id;
 
   const badges: React.ReactNode[] = [];
   if (status === 'live' && !is_flash) badges.push(<Badge key="live" variant="live" />);
@@ -158,6 +161,57 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
       return;
     }
     setDrawerOpen(true);
+  };
+
+  const handleCancelListing = async () => {
+    if (!confirm('Cancel this listing? This cannot be undone.')) return;
+    const { error } = await supabase.rpc('cancel_listing', { p_auction_id: auction.id });
+    if (error) {
+      showToast(error.message || 'Failed to cancel listing.', 'error');
+      return;
+    }
+    showToast('Listing cancelled.', 'info');
+    loadAuction();
+  };
+
+  const handleEndAuctionNow = async () => {
+    if (!confirm('End this auction now? Anyone who might have bid in the remaining time will lose that chance.')) return;
+    const { error } = await supabase.rpc('end_auction_now', { p_auction_id: auction.id });
+    if (error) {
+      showToast(error.message || 'Failed to end auction.', 'error');
+      return;
+    }
+    showToast('Auction ended.', 'success');
+    loadAuction();
+  };
+
+  const handleResolveSale = async (accept: boolean) => {
+    const { error } = await supabase.rpc('resolve_pending_sale', {
+      p_auction_id: auction.id,
+      p_accept: accept,
+    });
+    if (error) {
+      showToast(error.message || 'Failed to record your decision.', 'error');
+      return;
+    }
+    showToast(accept ? 'Sale accepted - order created and moved to escrow.' : 'Sale declined.', accept ? 'success' : 'info');
+    loadAuction();
+  };
+
+  const handleUpdateReserve = async () => {
+    const newReserve = parseFloat(reserveInput);
+    if (isNaN(newReserve) || newReserve <= 0) {
+      showToast('Enter a valid reserve price.', 'error');
+      return;
+    }
+    const { error } = await supabase.from('artworks').update({ reserve_price: newReserve }).eq('id', artwork.id);
+    if (error) {
+      showToast(error.message || 'Failed to update reserve price.', 'error');
+      return;
+    }
+    showToast('Reserve price updated.', 'success');
+    setEditingReserve(false);
+    loadAuction();
   };
 
   return (
@@ -281,17 +335,87 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                 </div>
               </div>
 
-              {/* Bid button */}
-              <button
-                onClick={handleBidClick}
-                disabled={status === 'upcoming' || status === 'ended'}
-                className="btn-accent w-full text-base py-4"
-              >
-                <span className="flex items-center justify-center gap-2">
-                  {session ? <Gavel className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-                  {status === 'upcoming' ? 'Auction Not Started' : status === 'ended' ? 'Auction Ended' : session ? 'Place Bid' : 'Sign In to Bid'}
-                </span>
-              </button>
+              {/* Owner controls vs buyer bid button */}
+              {isOwner ? (
+                <div className="space-y-3">
+                  {auction.outcome === 'pending_seller_review' && (
+                    <div className="p-4 bg-gold-50 dark:bg-gold-900/20 border border-gold-300 dark:border-gold-800">
+                      <p className="text-sm font-semibold mb-1">Reserve not met</p>
+                      <p className="text-xs text-ink-500 mb-3">
+                        Highest bid was {formatCurrency(auction.current_bid)}, below your reserve of {formatCurrency(artwork.reserve_price)}.
+                        Accept this price or decline the sale.
+                      </p>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleResolveSale(false)} className="btn-secondary text-xs py-2 px-4 flex-1">
+                          Decline
+                        </button>
+                        <button onClick={() => handleResolveSale(true)} className="btn-accent text-xs py-2 px-4 flex-1">
+                          Accept {formatCurrency(auction.current_bid)}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {(status === 'live' || status === 'flash') && (
+                    <button onClick={handleEndAuctionNow} className="btn-secondary w-full text-sm py-3">
+                      End Auction Now
+                    </button>
+                  )}
+
+                  {auction.bid_count === 0 && (status === 'live' || status === 'flash' || status === 'upcoming') && (
+                    <>
+                      {editingReserve ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={reserveInput}
+                            onChange={(e) => setReserveInput(e.target.value)}
+                            className="flex-1 px-3 py-2 text-sm bg-ink-50 dark:bg-ink-900 border border-ink-200 dark:border-ink-700"
+                            placeholder="New reserve price"
+                          />
+                          <button onClick={handleUpdateReserve} className="btn-accent text-xs py-2 px-4">Save</button>
+                          <button onClick={() => setEditingReserve(false)} className="btn-secondary text-xs py-2 px-4">Cancel</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setReserveInput(String(artwork.reserve_price));
+                            setEditingReserve(true);
+                          }}
+                          className="btn-secondary w-full text-sm py-3"
+                        >
+                          Adjust Reserve Price
+                        </button>
+                      )}
+                      <button onClick={handleCancelListing} className="w-full text-xs text-red-600 dark:text-red-400 py-2 hover:underline">
+                        Cancel Listing
+                      </button>
+                    </>
+                  )}
+
+                  {status === 'ended' && auction.outcome && (
+                    <div className="p-4 bg-ink-100 dark:bg-ink-800 text-center">
+                      <p className="text-sm font-semibold">
+                        {auction.outcome === 'sold' ? 'Sold' :
+                         auction.outcome === 'declined' ? 'Sale Declined' :
+                         auction.outcome === 'cancelled' ? 'Listing Cancelled' :
+                         'No Bids Received'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={handleBidClick}
+                  disabled={status === 'upcoming' || status === 'ended'}
+                  className="btn-accent w-full text-base py-4"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    {session ? <Gavel className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                    {status === 'upcoming' ? 'Auction Not Started' : status === 'ended' ? 'Auction Ended' : session ? 'Place Bid' : 'Sign In to Bid'}
+                  </span>
+                </button>
+              )}
 
               {/* Anti-snipe notice */}
               <div className="flex items-start gap-2 px-4 py-3 bg-ink-50 dark:bg-ink-900 border border-ink-200 dark:border-ink-800">
@@ -318,23 +442,27 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                   <p className="text-sm text-ink-400 py-4 text-center">No bids yet. Be the first.</p>
                 ) : (
                   <div className="space-y-2">
-                    {bids.slice(0, 8).map((bid, i) => (
+                    {bids.slice(0, 8).map((bid, i) => {
+                      const maskIdentity = isOwner && (status === 'live' || status === 'flash');
+                      const displayName = maskIdentity ? `Bidder ${bids.length - i}` : bid.bidder_name;
+                      return (
                       <div
                         key={bid.id}
                         className={`flex items-center justify-between px-4 py-2.5 ${i === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800' : 'bg-ink-50 dark:bg-ink-900'}`}
                       >
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 bg-ink-200 dark:bg-ink-700 flex items-center justify-center text-xs font-bold">
-                            {bid.bidder_name.charAt(0).toUpperCase()}
+                            {maskIdentity ? '?' : bid.bidder_name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-medium">{bid.bidder_name}</p>
+                            <p className="text-sm font-medium">{displayName}</p>
                             <p className="text-xs text-ink-400">{timeAgo(bid.created_at)}</p>
                           </div>
                         </div>
                         <p className="font-mono text-sm font-bold tabular-nums">{formatCurrency(bid.amount)}</p>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
