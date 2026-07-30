@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, ShieldCheck, X, Video, Image as ImageIcon, TrendingUp, Gavel, Check, Loader2, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { AuctionWithDetails, Artist } from '@/types';
+import type { AuctionWithDetails, Artist, Order } from '@/types';
 import { formatCurrency, MEDIUMS, SHIPPING_RATES } from '@/lib/theme';
 import { Badge } from '@/components/Badge';
 import { CountdownTimer } from '@/components/CountdownTimer';
@@ -22,6 +22,9 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
   const [auctions, setAuctions] = useState<AuctionWithDetails[]>([]);
   const [artist, setArtist] = useState<Artist | null>(null);
   const [loading, setLoading] = useState(true);
+  const [disputedOrders, setDisputedOrders] = useState<(Order & { artwork_title: string })[]>([]);
+  const [evidenceDrafts, setEvidenceDrafts] = useState<Record<string, string>>({});
+  const [submittingEvidence, setSubmittingEvidence] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -55,6 +58,18 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
         setLoading(false);
         return;
       }
+
+      // Orders on this artist's artworks with a claim awaiting a response
+      const { data: orderData } = await supabase
+        .from('orders')
+        .select('*, artwork:artworks(title)')
+        .in('artwork_id', artworkIds)
+        .eq('dispute_status', 'claim_raised')
+        .order('claim_raised_at', { ascending: true });
+
+      setDisputedOrders(
+        (orderData || []).map((o: any) => ({ ...o, artwork_title: o.artwork?.title || 'Untitled' }))
+      );
 
       const { data: auctionData } = await supabase
         .from('auctions')
@@ -102,6 +117,26 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
       accept ? 'success' : 'info'
     );
     window.location.reload();
+  };
+
+  const submitEvidence = async (orderId: string) => {
+    const evidence = (evidenceDrafts[orderId] || '').trim();
+    if (evidence.length < 20) {
+      showToast('Please describe your evidence in more detail (min 20 characters).', 'error');
+      return;
+    }
+    setSubmittingEvidence(orderId);
+    const { error } = await supabase.rpc('submit_claim_evidence', {
+      p_order_id: orderId,
+      p_evidence: evidence,
+    });
+    setSubmittingEvidence(null);
+    if (error) {
+      showToast(error.message || 'Failed to submit evidence.', 'error');
+      return;
+    }
+    showToast('Evidence submitted. Atelier will review it against our verification policy.', 'success');
+    setDisputedOrders((prev) => prev.filter((o) => o.id !== orderId));
   };
 
   if (!session) {
@@ -174,6 +209,46 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
               <p className="font-mono text-2xl font-bold">{auctions.length}</p>
             </div>
           </div>
+
+          {/* Disputed orders - buyer has raised a claim, awaiting artist evidence */}
+          {disputedOrders.length > 0 && (
+            <section className="mb-8">
+              <h2 className="text-xs uppercase tracking-widest font-semibold text-amber-600 mb-4">
+                Claims Awaiting Your Response
+              </h2>
+              <div className="space-y-3">
+                {disputedOrders.map((o) => (
+                  <div key={o.id} className="card-surface p-4">
+                    <div className="mb-3">
+                      <h3 className="font-serif text-sm font-semibold">{o.artwork_title}</h3>
+                      <p className="text-xs text-ink-500 mt-1">
+                        Buyer's claim: <span className="text-ink-700 dark:text-ink-300">{o.claim_reason}</span>
+                      </p>
+                    </div>
+                    <label className="text-xs text-ink-500 mb-1 block">
+                      Your evidence (dated sketches, source/layer files, timestamped WIP photos or video)
+                    </label>
+                    <textarea
+                      value={evidenceDrafts[o.id] || ''}
+                      onChange={(e) => setEvidenceDrafts((prev) => ({ ...prev, [o.id]: e.target.value }))}
+                      className="w-full text-xs p-2 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded mb-3"
+                      rows={3}
+                      placeholder="Describe and link to your process evidence for this specific piece..."
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => submitEvidence(o.id)}
+                        disabled={submittingEvidence === o.id}
+                        className="btn-accent text-xs py-2 px-4 disabled:opacity-40"
+                      >
+                        {submittingEvidence === o.id ? 'Submitting...' : 'Submit Evidence'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Pending seller review - reserve wasn't met, artist must decide */}
           {pendingReviewAuctions.length > 0 && (

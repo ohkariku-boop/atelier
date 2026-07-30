@@ -10,6 +10,7 @@ import { AuctionDetail } from '@/pages/AuctionDetail';
 import { ArtistProfile } from '@/pages/ArtistProfile';
 import { StudioDesk } from '@/pages/StudioDesk';
 import { OrderTracking } from '@/pages/OrderTracking';
+import { TrustSafety } from '@/pages/TrustSafety';
 import { AuthPage } from '@/pages/AuthPage';
 import { Loader2 } from 'lucide-react';
 
@@ -46,9 +47,11 @@ function AppContent() {
           <StudioDesk navigate={navigate} />
         ) : route.name === 'orders' ? (
           <OrderTracking navigate={navigate} />
+        ) : route.name === 'trust' ? (
+          <TrustSafety navigate={navigate} section={route.section} />
         ) : null}
       </main>
-      <Footer />
+      <Footer navigate={navigate} />
     </div>
   );
 }

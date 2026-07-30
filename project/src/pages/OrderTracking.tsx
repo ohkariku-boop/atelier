@@ -80,17 +80,26 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
   };
 
   const confirmDelivery = async (orderId: string) => {
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'completed' })
-      .eq('id', orderId);
+    const { error } = await supabase.rpc('release_order_funds', { p_order_id: orderId });
 
     if (error) {
-      showToast('Failed to confirm delivery.', 'error');
+      showToast(error.message || 'Failed to confirm delivery.', 'error');
       return;
     }
     showToast('Delivery confirmed! Escrow released to artist.', 'success');
     setRefreshKey((k) => k + 1);
+  };
+
+  const raiseClaim = async (orderId: string, reason: string) => {
+    const { error } = await supabase.rpc('raise_order_claim', { p_order_id: orderId, p_reason: reason });
+
+    if (error) {
+      showToast(error.message || 'Failed to raise claim.', 'error');
+      return false;
+    }
+    showToast('Claim submitted. The artist has been notified to respond.', 'success');
+    setRefreshKey((k) => k + 1);
+    return true;
   };
 
   if (!session) {
@@ -140,6 +149,7 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
               order={order}
               onUpdateTracking={() => updateTracking(order.id)}
               onConfirmDelivery={() => confirmDelivery(order.id)}
+              onRaiseClaim={(reason) => raiseClaim(order.id, reason)}
             />
           ))}
         </div>
@@ -152,12 +162,30 @@ interface OrderCardProps {
   order: OrderWithDetails;
   onUpdateTracking: () => void;
   onConfirmDelivery: () => void;
+  onRaiseClaim: (reason: string) => Promise<boolean>;
 }
 
-function OrderCard({ order, onUpdateTracking, onConfirmDelivery }: OrderCardProps) {
+function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim }: OrderCardProps) {
   const { artwork, artist } = order;
   const shipping = SHIPPING_RATES[order.shipping_tier];
   const total = order.amount + order.shipping_cost;
+  const [claimFormOpen, setClaimFormOpen] = useState(false);
+  const [claimReason, setClaimReason] = useState('');
+  const [submittingClaim, setSubmittingClaim] = useState(false);
+
+  const claimWindowOpen = order.paid_at
+    ? Date.now() < new Date(order.paid_at).getTime() + 72 * 60 * 60 * 1000
+    : false;
+
+  const handleSubmitClaim = async () => {
+    setSubmittingClaim(true);
+    const ok = await onRaiseClaim(claimReason);
+    setSubmittingClaim(false);
+    if (ok) {
+      setClaimFormOpen(false);
+      setClaimReason('');
+    }
+  };
 
   const steps = [
     { key: 'escrow', label: 'Escrow Hold', icon: Lock, description: 'Payment secured' },
@@ -233,6 +261,36 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery }: OrderCardProp
             </div>
           </div>
 
+          {/* Dispute status banner */}
+          {order.dispute_status !== 'none' && (
+            <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              {order.dispute_status === 'claim_raised' && (
+                <>
+                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Claim submitted — awaiting artist response</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">{order.claim_reason}</p>
+                </>
+              )}
+              {order.dispute_status === 'evidence_submitted' && (
+                <>
+                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Evidence submitted — awaiting review</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">Atelier will review the artist's response against our verification policy.</p>
+                </>
+              )}
+              {order.dispute_status === 'resolved_upheld' && (
+                <>
+                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Claim upheld</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">{order.resolution_notes}</p>
+                </>
+              )}
+              {order.dispute_status === 'resolved_denied' && (
+                <>
+                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Claim reviewed — not upheld</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">{order.resolution_notes}</p>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Tracking timeline */}
           <div className="mb-6">
             <div className="flex items-center justify-between relative">
@@ -277,28 +335,67 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery }: OrderCardProp
               </div>
             )}
 
-            <div className="flex gap-2">
-              {order.status === 'escrow' && (
-                <button onClick={onUpdateTracking} className="btn-secondary text-xs py-2 px-4">
-                  <span className="flex items-center gap-1.5">
-                    <Truck className="w-3.5 h-3.5" />
-                    Add Tracking
+            <div className="flex flex-col gap-2 items-end">
+              <div className="flex gap-2">
+                {order.status === 'escrow' && (
+                  <button onClick={onUpdateTracking} className="btn-secondary text-xs py-2 px-4">
+                    <span className="flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5" />
+                      Add Tracking
+                    </span>
+                  </button>
+                )}
+                {(order.status === 'shipped' || order.status === 'delivered') && order.dispute_status === 'none' && (
+                  <>
+                    <button onClick={onConfirmDelivery} className="btn-accent text-xs py-2 px-4">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Confirm Delivery
+                      </span>
+                    </button>
+                    {claimWindowOpen && (
+                      <button onClick={() => setClaimFormOpen((v) => !v)} className="btn-secondary text-xs py-2 px-4">
+                        Raise a Claim
+                      </button>
+                    )}
+                  </>
+                )}
+                {order.status === 'completed' && (
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    <ShieldCheck className="w-4 h-4" />
+                    Order Complete
                   </span>
-                </button>
-              )}
-              {(order.status === 'shipped' || order.status === 'delivered') && (
-                <button onClick={onConfirmDelivery} className="btn-accent text-xs py-2 px-4">
-                  <span className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Confirm Delivery
-                  </span>
-                </button>
-              )}
-              {order.status === 'completed' && (
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                  <ShieldCheck className="w-4 h-4" />
-                  Order Complete
-                </span>
+                )}
+              </div>
+
+              {claimFormOpen && (
+                <div className="w-full sm:w-96 p-3 bg-ink-50 dark:bg-ink-900 border border-ink-200 dark:border-ink-800">
+                  <label className="text-xs text-ink-500 mb-1 block">
+                    What specifically are you disputing? (min 20 characters)
+                  </label>
+                  <textarea
+                    value={claimReason}
+                    onChange={(e) => setClaimReason(e.target.value)}
+                    className="w-full text-xs p-2 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded"
+                    rows={3}
+                    placeholder="e.g. no visible brush texture in the high-res photos, no process video was provided despite listing claiming one exists..."
+                  />
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button
+                      onClick={() => { setClaimFormOpen(false); setClaimReason(''); }}
+                      className="text-xs text-ink-500 px-3 py-1.5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSubmitClaim}
+                      disabled={claimReason.trim().length < 20 || submittingClaim}
+                      className="btn-accent text-xs py-1.5 px-3 disabled:opacity-40"
+                    >
+                      {submittingClaim ? 'Submitting...' : 'Submit Claim'}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

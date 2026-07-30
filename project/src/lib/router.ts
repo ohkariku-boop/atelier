@@ -6,7 +6,8 @@ export type Route =
   | { name: 'artist'; artistId: string }
   | { name: 'studio' }
   | { name: 'orders' }
-  | { name: 'auth' };
+  | { name: 'auth' }
+  | { name: 'trust'; section?: string };
 
 function parseHash(): Route {
   const hash = window.location.hash.slice(1);
@@ -20,6 +21,7 @@ function parseHash(): Route {
   if (parts[0] === 'studio') return { name: 'studio' };
   if (parts[0] === 'orders') return { name: 'orders' };
   if (parts[0] === 'auth') return { name: 'auth' };
+  if (parts[0] === 'trust') return { name: 'trust', section: parts[1] };
   return { name: 'gallery' };
 }
 

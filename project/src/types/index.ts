@@ -56,6 +56,7 @@ export interface Bid {
 }
 
 export type OrderStatus = 'escrow' | 'shipped' | 'delivered' | 'completed';
+export type DisputeStatus = 'none' | 'claim_raised' | 'evidence_submitted' | 'resolved_upheld' | 'resolved_denied';
 
 export interface Order {
   id: string;
@@ -72,6 +73,13 @@ export interface Order {
   buyer_email: string | null;
   paid_at: string | null;
   created_at: string;
+  dispute_status: DisputeStatus;
+  claim_reason: string | null;
+  claim_raised_at: string | null;
+  evidence_notes: string | null;
+  evidence_submitted_at: string | null;
+  resolution_notes: string | null;
+  resolved_at: string | null;
 }
 
 export type UserRole = 'buyer' | 'artist';

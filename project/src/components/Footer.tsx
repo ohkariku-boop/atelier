@@ -1,6 +1,10 @@
 import { ShieldCheck, Heart } from 'lucide-react';
 
-export function Footer() {
+interface FooterProps {
+  navigate: (path: string) => void;
+}
+
+export function Footer({ navigate }: FooterProps) {
   return (
     <footer className="border-t border-ink-200 dark:border-ink-800 mt-20">
       <div className="max-w-[1600px] mx-auto px-6 lg:px-10 py-12">
@@ -21,19 +25,18 @@ export function Footer() {
           <div>
             <h4 className="text-xs uppercase tracking-widest text-ink-400 mb-3 font-semibold">Marketplace</h4>
             <ul className="space-y-2 text-sm text-ink-600 dark:text-ink-400">
-              <li className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Gallery Floor</li>
-              <li className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Flash Sales</li>
-              <li className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Studio Desk</li>
-              <li className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Orders & Tracking</li>
+              <li onClick={() => navigate('gallery')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Gallery Floor</li>
+              <li onClick={() => navigate('studio')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Studio Desk</li>
+              <li onClick={() => navigate('orders')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Orders & Tracking</li>
             </ul>
           </div>
           <div>
             <h4 className="text-xs uppercase tracking-widest text-ink-400 mb-3 font-semibold">Trust & Safety</h4>
             <ul className="space-y-2 text-sm text-ink-600 dark:text-ink-400">
-              <li className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Anti-AI Guarantee</li>
-              <li className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Studio Verification</li>
-              <li className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Escrow Protection</li>
-              <li className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Stripe Connect Payouts</li>
+              <li onClick={() => navigate('trust/anti-ai')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Anti-AI Guarantee</li>
+              <li onClick={() => navigate('trust/verification')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Studio Verification</li>
+              <li onClick={() => navigate('trust/escrow')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Escrow Protection</li>
+              <li onClick={() => navigate('trust/payouts')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Stripe Connect Payouts</li>
             </ul>
           </div>
         </div>
