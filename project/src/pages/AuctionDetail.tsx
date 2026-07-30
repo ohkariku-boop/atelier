@@ -534,18 +534,29 @@ function CreatorStudio({ auction }: { auction: AuctionWithDetails }) {
       {/* Process video */}
       <div>
         <h4 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-3">Process Video</h4>
-        <div className="relative aspect-video bg-ink-900 overflow-hidden group cursor-pointer">
-          <img src={artwork.image_url} alt="" className="w-full h-full object-cover opacity-40" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-16 h-16 bg-ink-50/90 rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
-              <Play className="w-7 h-7 text-ink-900 ml-1" fill="currentColor" />
+        {artwork.verification_video_url ? (
+          <a
+            href={artwork.verification_video_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative aspect-video bg-ink-900 overflow-hidden group cursor-pointer block"
+          >
+            <img src={artwork.image_url} alt="" className="w-full h-full object-cover opacity-40" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-16 h-16 bg-ink-50/90 rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
+                <Play className="w-7 h-7 text-ink-900 ml-1" fill="currentColor" />
+              </div>
             </div>
+            <div className="absolute bottom-4 left-4 right-4">
+              <p className="text-ink-50 text-sm font-medium">5-Second Studio Verification</p>
+              <p className="text-ink-300 text-xs">Recorded during creation of this piece</p>
+            </div>
+          </a>
+        ) : (
+          <div className="relative aspect-video bg-ink-900 overflow-hidden flex items-center justify-center">
+            <p className="text-ink-400 text-sm">No verification video was uploaded for this piece.</p>
           </div>
-          <div className="absolute bottom-4 left-4 right-4">
-            <p className="text-ink-50 text-sm font-medium">5-Second Studio Verification</p>
-            <p className="text-ink-300 text-xs">Recorded during creation of this piece</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Artwork description */}

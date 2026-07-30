@@ -41,7 +41,7 @@ export function Footer({ navigate }: FooterProps) {
           </div>
         </div>
         <div className="mt-10 pt-6 border-t border-ink-200 dark:border-ink-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-ink-400">© 2024 Atelier. All rights reserved.</p>
+          <p className="text-xs text-ink-400">© 2026 Atelier. All rights reserved.</p>
           <p className="text-xs text-ink-400 flex items-center gap-1.5">
             Made with <Heart className="w-3 h-3 text-accent-500 fill-current" /> for human artists
           </p>
