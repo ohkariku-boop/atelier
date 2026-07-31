@@ -32,6 +32,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [viewCounted, setViewCounted] = useState(false);
+  const [displayViewCount, setDisplayViewCount] = useState(0);
 
   const loadAuction = useCallback(async () => {
     const { data: auctionData, error } = await supabase
@@ -53,6 +54,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
 
     setAuction({ ...auctionData, artwork: auctionData.artwork, artist });
     setLikeCount(auctionData.artwork.like_count || 0);
+    setDisplayViewCount(auctionData.artwork.view_count || 0);
     setLoading(false);
   }, [auctionId]);
 
@@ -76,7 +78,10 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   useEffect(() => {
     if (!auction?.artwork.id || viewCounted) return;
     setViewCounted(true);
-    supabase.rpc('increment_artwork_view', { p_artwork_id: auction.artwork.id });
+    setDisplayViewCount((c) => c + 1);
+    supabase.rpc('increment_artwork_view', { p_artwork_id: auction.artwork.id }).then(({ error }) => {
+      if (error) console.error('Failed to record view:', error.message);
+    });
   }, [auction?.artwork.id, viewCounted]);
 
   // Check whether the current user has already liked this piece
@@ -312,7 +317,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
               </span>
               <span className="flex items-center gap-1">
                 <Eye className="w-3.5 h-3.5" />
-                {artwork.view_count || 0}
+                {displayViewCount}
               </span>
             </div>
           </div>
