@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Gavel, ShieldCheck, Clock, TrendingUp, Play, Maximize2, Package, Lock } from 'lucide-react';
+import { ArrowLeft, Gavel, ShieldCheck, Clock, TrendingUp, Play, Maximize2, Package, Lock, Heart, Eye } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { AuctionWithDetails, Bid } from '@/types';
 import { formatCurrency, timeAgo, SHIPPING_RATES } from '@/lib/theme';
@@ -29,6 +29,9 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   const [activeTab, setActiveTab] = useState<Tab>('auction');
   const [editingReserve, setEditingReserve] = useState(false);
   const [reserveInput, setReserveInput] = useState('');
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [viewCounted, setViewCounted] = useState(false);
 
   const loadAuction = useCallback(async () => {
     const { data: auctionData, error } = await supabase
@@ -49,6 +52,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
       .maybeSingle();
 
     setAuction({ ...auctionData, artwork: auctionData.artwork, artist });
+    setLikeCount(auctionData.artwork.like_count || 0);
     setLoading(false);
   }, [auctionId]);
 
@@ -65,6 +69,49 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
     loadAuction();
     loadBids();
   }, [loadAuction, loadBids]);
+
+  // Increment view count once per mount - cosmetic engagement data, not
+  // a trust signal, so a small amount of over-counting from refreshes
+  // is an acceptable tradeoff rather than building dedupe logic for it.
+  useEffect(() => {
+    if (!auction?.artwork.id || viewCounted) return;
+    setViewCounted(true);
+    supabase.rpc('increment_artwork_view', { p_artwork_id: auction.artwork.id });
+  }, [auction?.artwork.id, viewCounted]);
+
+  // Check whether the current user has already liked this piece
+  useEffect(() => {
+    if (!auction?.artwork.id || !session?.user?.id) return;
+    supabase
+      .from('artwork_likes')
+      .select('id')
+      .eq('artwork_id', auction.artwork.id)
+      .eq('user_id', session.user.id)
+      .maybeSingle()
+      .then(({ data }) => setLiked(!!data));
+  }, [auction?.artwork.id, session?.user?.id]);
+
+  const toggleLike = async () => {
+    if (!auction?.artwork.id) return;
+    if (!session?.user?.id) {
+      showToast('Sign in to like a piece.', 'info');
+      return;
+    }
+    // Optimistic update
+    const wasLiked = liked;
+    setLiked(!wasLiked);
+    setLikeCount((c) => (wasLiked ? Math.max(c - 1, 0) : c + 1));
+
+    const { data, error } = await supabase.rpc('toggle_artwork_like', { p_artwork_id: auction.artwork.id });
+    if (error) {
+      // revert on failure
+      setLiked(wasLiked);
+      setLikeCount((c) => (wasLiked ? c + 1 : Math.max(c - 1, 0)));
+      showToast(error.message || 'Failed to update like.', 'error');
+      return;
+    }
+    setLiked(!!data?.liked);
+  };
 
   // Lazily close this auction if its timer has passed - there is no cron
   // job in this stack, so viewing the page is what actually triggers
@@ -227,26 +274,56 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         {/* Image */}
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <div className="relative aspect-[4/5] overflow-hidden bg-ink-100 dark:bg-ink-800 group">
+          <div
+            className="relative aspect-[4/5] overflow-hidden bg-ink-100 dark:bg-ink-800"
+            onDoubleClick={() => {
+              if (!liked) toggleLike();
+            }}
+          >
             <ImageZoom src={artwork.image_url} alt={artwork.title} className="w-full h-full" />
             <button
-              onClick={() => setFullscreen(true)}
-              className="absolute bottom-3 right-3 p-2.5 bg-ink-950/70 text-ink-50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={toggleLike}
+              aria-label={liked ? 'Unlike' : 'Like'}
+              className="absolute top-3 left-3 p-2 bg-ink-950/60 backdrop-blur-sm rounded-full transition-transform active:scale-90"
             >
-              <Maximize2 className="w-4 h-4" />
+              <Heart
+                className={`w-5 h-5 transition-colors ${liked ? 'fill-red-500 text-red-500' : 'text-ink-50'}`}
+              />
             </button>
           </div>
-          <div className="flex gap-2 mt-3">
-            <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden">
-              <img src={artwork.image_url} alt="" className="w-full h-full object-cover" />
+
+          <div className="flex items-center justify-between mt-3">
+            <div className="flex gap-2">
+              <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden">
+                <img src={artwork.image_url} alt="" className="w-full h-full object-cover" />
+              </div>
+              <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden">
+                <img src={artwork.image_url} alt="" className="w-full h-full object-cover scale-150" />
+              </div>
+              <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden">
+                <img src={artwork.image_url} alt="" className="w-full h-full object-cover scale-[2.5]" />
+              </div>
             </div>
-            <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden">
-              <img src={artwork.image_url} alt="" className="w-full h-full object-cover scale-150" />
-            </div>
-            <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden">
-              <img src={artwork.image_url} alt="" className="w-full h-full object-cover scale-[2.5]" />
+
+            <div className="flex items-center gap-3 text-xs text-ink-500">
+              <span className="flex items-center gap-1">
+                <Heart className={`w-3.5 h-3.5 ${liked ? 'fill-red-500 text-red-500' : ''}`} />
+                {likeCount}
+              </span>
+              <span className="flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5" />
+                {artwork.view_count || 0}
+              </span>
             </div>
           </div>
+
+          <button
+            onClick={() => setFullscreen(true)}
+            className="w-full mt-3 py-2.5 border border-ink-200 dark:border-ink-700 text-sm font-medium flex items-center justify-center gap-2 hover:border-ink-900 dark:hover:border-ink-400 transition-colors"
+          >
+            <Maximize2 className="w-4 h-4" />
+            Tap to Zoom
+          </button>
         </div>
 
         {/* Details */}
@@ -268,7 +345,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
               </p>
               <p className="text-xs text-ink-500">{artist?.location}</p>
             </div>
-            {artist?.studio_verified && <ShieldCheck className="w-4 h-4 text-emerald-500" />}
+            {artwork.studio_verified && <ShieldCheck className="w-4 h-4 text-emerald-500" />}
           </button>
 
           <div className="flex flex-wrap gap-4 mb-6 text-xs uppercase tracking-wider text-ink-500">
@@ -503,7 +580,7 @@ function CreatorStudio({ auction }: { auction: AuctionWithDetails }) {
         <div>
           <div className="flex items-center gap-2">
             <h3 className="font-serif text-xl font-semibold">{artist?.name}</h3>
-            {artist?.studio_verified && (
+            {artwork.studio_verified && (
               <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Studio Verified
@@ -526,7 +603,7 @@ function CreatorStudio({ auction }: { auction: AuctionWithDetails }) {
           <p className="text-[10px] uppercase tracking-widest text-ink-400 mt-1">Human-Made</p>
         </div>
         <div className="bg-ink-100 dark:bg-ink-800 p-4 text-center">
-          <p className="font-mono text-2xl font-bold">{artist?.studio_verified ? 'Yes' : 'No'}</p>
+          <p className="font-mono text-2xl font-bold">{artwork.studio_verified ? 'Yes' : 'No'}</p>
           <p className="text-[10px] uppercase tracking-widest text-ink-400 mt-1">Verified</p>
         </div>
       </div>
@@ -600,18 +677,6 @@ function CreatorStudio({ auction }: { auction: AuctionWithDetails }) {
       <div>
         <h4 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-3">About This Piece</h4>
         <p className="text-sm text-ink-600 dark:text-ink-400 leading-relaxed">{artwork.description}</p>
-      </div>
-
-      {/* Verification */}
-      <div className="flex items-start gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-        <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Studio Verified</p>
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 leading-relaxed">
-            This artwork has been verified through a 5-second studio video showing the artist
-            at work. It is certified as 100% human-created, physical art.
-          </p>
-        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, ShieldCheck, X, Video, Image as ImageIcon, TrendingUp, Gavel, Check, Loader2, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { AuctionWithDetails, Artist, Order } from '@/types';
+import type { AuctionWithDetails, Artist, Order, Artwork } from '@/types';
 import { formatCurrency, MEDIUMS, SHIPPING_RATES } from '@/lib/theme';
 import { Badge } from '@/components/Badge';
 import { CountdownTimer } from '@/components/CountdownTimer';
@@ -20,6 +20,10 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
   const { profile, session } = useAuth();
   const [view, setView] = useState<View>('dashboard');
   const [auctions, setAuctions] = useState<AuctionWithDetails[]>([]);
+  const [myArtworks, setMyArtworks] = useState<Artwork[]>([]);
+  const [editingArtwork, setEditingArtwork] = useState<Artwork | null>(null);
+  const [startingAuctionFor, setStartingAuctionFor] = useState<string | null>(null);
+  const [deletingArtworkId, setDeletingArtworkId] = useState<string | null>(null);
   const [artist, setArtist] = useState<Artist | null>(null);
   const [loading, setLoading] = useState(true);
   const [disputedOrders, setDisputedOrders] = useState<(Order & { artwork_title: string })[]>([]);
@@ -41,15 +45,18 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
         .maybeSingle();
       setArtist(artistData as Artist | null);
 
-      // Load auctions for this artist's artworks
+      // Load all of this artist's artwork listings (full rows, for edit/delete/start-auction)
       const { data: artworkData } = await supabase
         .from('artworks')
-        .select('id, artist:artists(*)')
-        .eq('user_id', session.user.id);
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      setMyArtworks((artworkData || []) as Artwork[]);
 
       const artistMap = new Map<string, Artist>();
       (artworkData || []).forEach((aw: any) => {
-        if (aw.artist) artistMap.set(aw.id, aw.artist);
+        if (artistData) artistMap.set(aw.id, artistData as Artist);
       });
 
       const artworkIds = (artworkData || []).map((aw: any) => aw.id);
@@ -100,6 +107,12 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
   const pendingReviewAuctions = auctions.filter((a) => a.outcome === 'pending_seller_review');
   const endedAuctions = auctions.filter((a) => a.status === 'ended' && a.outcome !== 'pending_seller_review');
 
+  const artworkIdsWithActiveAuction = new Set(
+    auctions.filter((a) => a.status === 'live' || a.status === 'flash' || a.status === 'upcoming').map((a) => a.artwork_id)
+  );
+  const unverifiedListings = myArtworks.filter((aw) => !aw.studio_verified);
+  const readyToAuctionListings = myArtworks.filter((aw) => aw.studio_verified && !artworkIdsWithActiveAuction.has(aw.id));
+
   const totalRevenue = endedAuctions.reduce((sum, a) => sum + a.current_bid, 0);
   const totalBids = auctions.reduce((sum, a) => sum + a.bid_count, 0);
 
@@ -137,6 +150,31 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
     }
     showToast('Evidence submitted. Atelier will review it against our verification policy.', 'success');
     setDisputedOrders((prev) => prev.filter((o) => o.id !== orderId));
+  };
+
+  const handleStartAuction = async (artworkId: string) => {
+    setStartingAuctionFor(artworkId);
+    const { error } = await supabase.rpc('start_auction_for_artwork', { p_artwork_id: artworkId });
+    setStartingAuctionFor(null);
+    if (error) {
+      showToast(error.message || 'Failed to start auction.', 'error');
+      return;
+    }
+    showToast('Auction started! Your listing is now live.', 'success');
+    window.location.reload();
+  };
+
+  const handleDeleteListing = async (artworkId: string) => {
+    if (!window.confirm('Delete this listing? This cannot be undone.')) return;
+    setDeletingArtworkId(artworkId);
+    const { error } = await supabase.rpc('delete_artwork_listing', { p_artwork_id: artworkId });
+    setDeletingArtworkId(null);
+    if (error) {
+      showToast(error.message || 'Failed to delete listing.', 'error');
+      return;
+    }
+    showToast('Listing deleted.', 'success');
+    setMyArtworks((prev) => prev.filter((aw) => aw.id !== artworkId));
   };
 
   if (!session) {
@@ -289,6 +327,76 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
             </section>
           )}
 
+          {/* My listings - not yet live, either pending review or verified and ready to start */}
+          {(unverifiedListings.length > 0 || readyToAuctionListings.length > 0) && (
+            <section className="mb-8">
+              <h2 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-4">My Listings</h2>
+              <div className="space-y-3">
+                {readyToAuctionListings.map((aw) => (
+                  <div key={aw.id} className="card-surface flex items-center gap-4 p-4">
+                    <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden flex-shrink-0">
+                      <img src={aw.image_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Verified — Ready to List
+                      </span>
+                      <h3 className="font-serif text-sm font-semibold truncate">{aw.title}</h3>
+                      <p className="text-xs text-ink-500">{aw.medium}</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleStartAuction(aw.id)}
+                        disabled={startingAuctionFor === aw.id}
+                        className="btn-accent text-xs py-2 px-3 disabled:opacity-40"
+                      >
+                        {startingAuctionFor === aw.id ? 'Starting...' : 'Start Auction'}
+                      </button>
+                      <button onClick={() => { setEditingArtwork(aw); setView('create'); }} className="btn-secondary text-xs py-2 px-3">
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteListing(aw.id)}
+                        disabled={deletingArtworkId === aw.id}
+                        className="text-xs text-red-600 dark:text-red-400 px-3 disabled:opacity-40"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {unverifiedListings.map((aw) => (
+                  <div key={aw.id} className="card-surface flex items-center gap-4 p-4">
+                    <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden flex-shrink-0">
+                      <img src={aw.image_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-semibold text-gold-600 dark:text-gold-400 mb-1 block">
+                        Pending Review
+                      </span>
+                      <h3 className="font-serif text-sm font-semibold truncate">{aw.title}</h3>
+                      <p className="text-xs text-ink-500">{aw.medium}</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                      <button onClick={() => { setEditingArtwork(aw); setView('create'); }} className="btn-secondary text-xs py-2 px-3">
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteListing(aw.id)}
+                        disabled={deletingArtworkId === aw.id}
+                        className="text-xs text-red-600 dark:text-red-400 px-3 disabled:opacity-40"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Active auctions */}
           <section className="mb-8">
             <h2 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-4">Active Auctions</h2>
@@ -335,10 +443,17 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
       ) : (
         <CreateListingForm
           artist={artist}
-          onCancel={() => setView('dashboard')}
+          editingArtwork={editingArtwork}
+          onCancel={() => { setView('dashboard'); setEditingArtwork(null); }}
           onSuccess={() => {
             setView('dashboard');
-            showToast('Listing published! Your studio verification is pending review.', 'success');
+            showToast(
+              editingArtwork
+                ? 'Listing updated! Changes are pending re-verification before you can start an auction.'
+                : 'Listing published! Your studio verification is pending review.',
+              'success'
+            );
+            setEditingArtwork(null);
             window.location.reload();
           }}
         />
@@ -388,35 +503,48 @@ function AuctionRow({ auction, navigate }: { auction: AuctionWithDetails; naviga
 
 interface CreateListingFormProps {
   artist: Artist | null;
+  editingArtwork?: Artwork | null;
   onCancel: () => void;
   onSuccess: () => void;
 }
 
-function CreateListingForm({ artist, onCancel, onSuccess }: CreateListingFormProps) {
+function CreateListingForm({ artist, editingArtwork, onCancel, onSuccess }: CreateListingFormProps) {
   const { showToast } = useToast();
   const { session } = useAuth();
-  const [title, setTitle] = useState('');
-  const [medium, setMedium] = useState<string>('Oil');
-  const [dimensions, setDimensions] = useState('');
-  const [description, setDescription] = useState('');
-  const [reservePrice, setReservePrice] = useState<number>(500);
-  const [startingBid, setStartingBid] = useState<number>(200);
-  const [shippingTier, setShippingTier] = useState<string>('medium_framed');
+  const [title, setTitle] = useState(editingArtwork?.title || '');
+  const [medium, setMedium] = useState<string>(editingArtwork?.medium || 'Oil');
+  const [dimensions, setDimensions] = useState(editingArtwork?.dimensions || '');
+  const [description, setDescription] = useState(editingArtwork?.description || '');
+  const [reservePrice, setReservePrice] = useState<number>(editingArtwork?.reserve_price ?? 500);
+  const [startingBid, setStartingBid] = useState<number>(editingArtwork?.starting_bid ?? 200);
+  const [shippingTier, setShippingTier] = useState<string>(editingArtwork?.shipping_tier || 'medium_framed');
   const [certified, setCertified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(editingArtwork?.image_url || null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(
+    editingArtwork?.requested_verification_method === 'live_video' ? editingArtwork.verification_video_url : null
+  );
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
 
-  const [verificationMethod, setVerificationMethod] = useState<'live_video' | 'evidence_based' | 'studio_partner'>('live_video');
-  const [evidenceItems, setEvidenceItems] = useState<{ type: 'wip_photo'; url: string; note: string }[]>([]);
-  const [evidenceNote, setEvidenceNote] = useState('');
+  const [verificationMethod, setVerificationMethod] = useState<'live_video' | 'evidence_based' | 'studio_partner'>(
+    editingArtwork?.requested_verification_method || 'live_video'
+  );
+  const [evidenceItems, setEvidenceItems] = useState<{ type: 'wip_photo'; url: string; note: string }[]>(
+    editingArtwork?.requested_verification_method === 'evidence_based'
+      ? (editingArtwork.evidence_items as { type: 'wip_photo'; url: string; note: string }[])
+      : []
+  );
+  const [evidenceNote, setEvidenceNote] = useState(
+    editingArtwork?.requested_verification_method === 'evidence_based' ? editingArtwork.evidence_items[0]?.note || '' : ''
+  );
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
-  const [partnerNote, setPartnerNote] = useState('');
+  const [partnerNote, setPartnerNote] = useState(
+    editingArtwork?.requested_verification_method === 'studio_partner' ? editingArtwork.evidence_items[0]?.note || '' : ''
+  );
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -536,49 +664,59 @@ function CreateListingForm({ artist, onCancel, onSuccess }: CreateListingFormPro
       return;
     }
     setSubmitting(true);
+
+    const evidencePayload =
+      verificationMethod === 'evidence_based'
+        ? evidenceItems.map((item) => ({ ...item, note: evidenceNote.trim() }))
+        : verificationMethod === 'studio_partner'
+        ? [{ type: 'other', url: '', note: partnerNote.trim() }]
+        : [];
+
     try {
-      const { data: artwork, error: artError } = await supabase
-        .from('artworks')
-        .insert({
-          artist_id: artist!.id,
-          user_id: session!.user.id,
-          title: title.trim(),
-          medium,
-          dimensions: dimensions.trim(),
-          description: description.trim(),
-          image_url: imageUrl,
-          reserve_price: reservePrice,
-          starting_bid: startingBid,
-          shipping_tier: shippingTier,
-          studio_verified: false,
-          verification_video_url: verificationMethod === 'live_video' ? videoUrl : null,
-          requested_verification_method: verificationMethod,
-          evidence_items:
-            verificationMethod === 'evidence_based'
-              ? evidenceItems.map((item) => ({ ...item, note: evidenceNote.trim() }))
-              : verificationMethod === 'studio_partner'
-              ? [{ type: 'other', url: '', note: partnerNote.trim() }]
-              : [],
-        })
-        .select()
-        .single();
+      if (editingArtwork) {
+        const { error } = await supabase.rpc('edit_artwork_listing', {
+          p_artwork_id: editingArtwork.id,
+          p_title: title.trim(),
+          p_medium: medium,
+          p_dimensions: dimensions.trim(),
+          p_description: description.trim(),
+          p_reserve_price: reservePrice,
+          p_starting_bid: startingBid,
+          p_shipping_tier: shippingTier,
+          p_image_url: imageUrl,
+          p_requested_verification_method: verificationMethod,
+          p_verification_video_url: verificationMethod === 'live_video' ? videoUrl : null,
+          p_evidence_items: evidencePayload,
+        });
+        if (error) throw error;
+      } else {
+        const { error: artError } = await supabase
+          .from('artworks')
+          .insert({
+            artist_id: artist!.id,
+            user_id: session!.user.id,
+            title: title.trim(),
+            medium,
+            dimensions: dimensions.trim(),
+            description: description.trim(),
+            image_url: imageUrl,
+            reserve_price: reservePrice,
+            starting_bid: startingBid,
+            shipping_tier: shippingTier,
+            studio_verified: false,
+            verification_video_url: verificationMethod === 'live_video' ? videoUrl : null,
+            requested_verification_method: verificationMethod,
+            evidence_items: evidencePayload,
+          })
+          .select()
+          .single();
 
-      if (artError) throw artError;
+        if (artError) throw artError;
+      }
 
-      const endTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      const { error: auctionError } = await supabase.from('auctions').insert({
-        artwork_id: artwork.id,
-        status: 'live',
-        end_time: endTime,
-        current_bid: startingBid,
-        bid_count: 0,
-        is_flash: false,
-      });
-
-      if (auctionError) throw auctionError;
       onSuccess();
-    } catch {
-      showToast('Failed to create listing. Please try again.', 'error');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to save listing. Please try again.', 'error');
       setSubmitting(false);
     }
   };
@@ -591,8 +729,12 @@ function CreateListingForm({ artist, onCancel, onSuccess }: CreateListingFormPro
       </button>
 
       <div className="card-surface p-8">
-        <h2 className="font-serif text-2xl font-semibold mb-2">Create New Listing</h2>
-        <p className="text-sm text-ink-500 mb-8">Publish a new physical artwork to the Gallery Floor.</p>
+        <h2 className="font-serif text-2xl font-semibold mb-2">{editingArtwork ? 'Edit Listing' : 'Create New Listing'}</h2>
+        <p className="text-sm text-ink-500 mb-8">
+          {editingArtwork
+            ? 'Changes will need to pass verification again before you can start an auction.'
+            : 'Publish a new physical artwork to the Gallery Floor.'}
+        </p>
 
         <div className="space-y-6">
           {/* Artist info (read-only) */}
@@ -934,7 +1076,7 @@ function CreateListingForm({ artist, onCancel, onSuccess }: CreateListingFormPro
               disabled={!canSubmit}
               className="btn-accent flex-1 text-sm"
             >
-              {submitting ? 'Publishing...' : 'Publish to Gallery Floor'}
+              {submitting ? 'Saving...' : editingArtwork ? 'Save Changes' : 'Publish to Gallery Floor'}
             </button>
           </div>
         </div>

@@ -54,9 +54,31 @@ export function TrustSafety({ section }: TrustSafetyProps) {
         </div>
         <div className="text-sm text-ink-600 dark:text-ink-400 leading-relaxed space-y-3 pl-13">
           <p>
-            Before a studio can list, we review process evidence — work-in-progress photos, sketches,
-            or short process video — dated and tied to the specific piece. This is the same evidence
-            standard used if a listing is ever disputed after sale (see below).
+            Not every piece can be verified the same way, so we accept a few different paths — each
+            reviewed against the same standard before a listing is allowed to carry the verified badge.
+          </p>
+          <ul className="list-disc list-inside space-y-1.5">
+            <li>
+              <strong className="text-ink-900 dark:text-ink-100">Process video</strong> — filmed while
+              the piece was being made. Hands-and-tools footage is enough; showing your face is never
+              required.
+            </li>
+            <li>
+              <strong className="text-ink-900 dark:text-ink-100">Evidence-based</strong> — for work
+              completed before joining Atelier: dated work-in-progress photos, sketches, source/layer
+              files, or purchase receipts tied to the specific piece.
+            </li>
+            <li>
+              <strong className="text-ink-900 dark:text-ink-100">In-person / partner verification</strong>
+              {' '}— a partner studio, gallery, or an Atelier team member vouches for the piece directly.
+            </li>
+          </ul>
+          <p>
+            We don't publish the exact review criteria we apply to submitted evidence — the same way most
+            fraud-review and content-moderation teams keep their detection specifics internal — since
+            publishing an exact checklist mainly helps someone trying to fabricate a pass. What we do
+            publish is this: every submission is reviewed against a consistent internal standard, tied to
+            the specific piece, before a listing carries the verified badge.
           </p>
         </div>
       </section>
