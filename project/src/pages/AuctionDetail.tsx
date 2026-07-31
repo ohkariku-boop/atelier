@@ -531,33 +531,70 @@ function CreatorStudio({ auction }: { auction: AuctionWithDetails }) {
         </div>
       </div>
 
-      {/* Process video */}
-      <div>
-        <h4 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-3">Process Video</h4>
-        {artwork.verification_video_url ? (
-          <a
-            href={artwork.verification_video_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative aspect-video bg-ink-900 overflow-hidden group cursor-pointer block"
-          >
-            <img src={artwork.image_url} alt="" className="w-full h-full object-cover opacity-40" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-16 h-16 bg-ink-50/90 rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
-                <Play className="w-7 h-7 text-ink-900 ml-1" fill="currentColor" />
+      {/* Verification */}
+      {artwork.verification_method === 'live_video' && (
+        <div>
+          <h4 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-3">Process Video</h4>
+          {artwork.verification_video_url ? (
+            <a
+              href={artwork.verification_video_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative aspect-video bg-ink-900 overflow-hidden group cursor-pointer block"
+            >
+              <img src={artwork.image_url} alt="" className="w-full h-full object-cover opacity-40" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-16 h-16 bg-ink-50/90 rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
+                  <Play className="w-7 h-7 text-ink-900 ml-1" fill="currentColor" />
+                </div>
               </div>
+              <div className="absolute bottom-4 left-4 right-4">
+                <p className="text-ink-50 text-sm font-medium">5-Second Studio Verification</p>
+                <p className="text-ink-300 text-xs">Recorded during creation of this piece</p>
+              </div>
+            </a>
+          ) : (
+            <div className="relative aspect-video bg-ink-900 overflow-hidden flex items-center justify-center">
+              <p className="text-ink-400 text-sm">No verification video was uploaded for this piece.</p>
             </div>
-            <div className="absolute bottom-4 left-4 right-4">
-              <p className="text-ink-50 text-sm font-medium">5-Second Studio Verification</p>
-              <p className="text-ink-300 text-xs">Recorded during creation of this piece</p>
+          )}
+        </div>
+      )}
+
+      {artwork.verification_method === 'evidence_based' && (
+        <div>
+          <h4 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-3">Verified by Evidence</h4>
+          <p className="text-xs text-ink-500 mb-3">
+            This piece was completed before joining Atelier. It was verified using dated process evidence
+            rather than a live video.
+          </p>
+          {artwork.evidence_items.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {artwork.evidence_items.map((item, i) => (
+                <a key={i} href={item.url} target="_blank" rel="noopener noreferrer" className="aspect-square bg-ink-100 dark:bg-ink-800 overflow-hidden block">
+                  <img src={item.url} alt="" className="w-full h-full object-cover" />
+                </a>
+              ))}
             </div>
-          </a>
-        ) : (
-          <div className="relative aspect-video bg-ink-900 overflow-hidden flex items-center justify-center">
-            <p className="text-ink-400 text-sm">No verification video was uploaded for this piece.</p>
+          )}
+        </div>
+      )}
+
+      {artwork.verification_method === 'studio_partner' && (
+        <div className="p-4 bg-ink-100 dark:bg-ink-800 flex items-center gap-3">
+          <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium">Verified In Person</p>
+            <p className="text-xs text-ink-500 mt-0.5">A partner studio or Atelier team member verified this piece directly.</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {!artwork.verification_method && (
+        <div className="p-4 bg-ink-100 dark:bg-ink-800">
+          <p className="text-sm text-ink-500">Verification for this piece is still pending review.</p>
+        </div>
+      )}
 
       {/* Artwork description */}
       <div>

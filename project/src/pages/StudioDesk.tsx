@@ -412,8 +412,15 @@ function CreateListingForm({ artist, onCancel, onSuccess }: CreateListingFormPro
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
 
+  const [verificationMethod, setVerificationMethod] = useState<'live_video' | 'evidence_based' | 'studio_partner'>('live_video');
+  const [evidenceItems, setEvidenceItems] = useState<{ type: 'wip_photo'; url: string; note: string }[]>([]);
+  const [evidenceNote, setEvidenceNote] = useState('');
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [partnerNote, setPartnerNote] = useState('');
+
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const evidenceInputRef = useRef<HTMLInputElement>(null);
 
   // Validation
   const errors: Record<string, string> = {};
@@ -425,7 +432,15 @@ function CreateListingForm({ artist, onCancel, onSuccess }: CreateListingFormPro
   if (startingBid < 0) errors.startingBid = 'Starting bid cannot be negative.';
   if (startingBid > reservePrice) errors.startingBid = 'Starting bid cannot exceed reserve price.';
   if (!imageUrl) errors.image = 'Artwork photo is required.';
-  if (!videoUrl) errors.video = 'Verification video is required.';
+  if (verificationMethod === 'live_video' && !videoUrl) {
+    errors.video = 'Verification video is required.';
+  }
+  if (verificationMethod === 'evidence_based' && evidenceItems.length === 0) {
+    errors.evidence = 'Upload at least one piece of evidence (WIP photo, sketch, source file, receipt).';
+  }
+  if (verificationMethod === 'studio_partner' && partnerNote.trim().length < 10) {
+    errors.partner = 'Tell us which studio/gallery can vouch for this piece, or how we can verify it in person.';
+  }
   if (!certified) errors.certified = 'You must certify this is human-made art.';
 
   const canSubmit = Object.keys(errors).length === 0 && !submitting && !!session?.user?.id && !!artist;
@@ -484,6 +499,37 @@ function CreateListingForm({ artist, onCancel, onSuccess }: CreateListingFormPro
     }
   };
 
+  const handleEvidenceUpload = async (file: File) => {
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf';
+    if (!isImage && !isPdf) {
+      showToast('Please upload an image or PDF (photo, sketch, receipt, or source file export).', 'error');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      showToast('File must be under 15MB.', 'error');
+      return;
+    }
+    setUploadingEvidence(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `evidence/${session?.user?.id}/${Date.now()}-evidence.${ext}`;
+      const { error } = await supabase.storage.from('artwork-uploads').upload(path, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('artwork-uploads').getPublicUrl(path);
+      setEvidenceItems((prev) => [...prev, { type: 'wip_photo', url: urlData.publicUrl, note: '' }]);
+      showToast('Evidence uploaded.', 'success');
+    } catch {
+      showToast('Failed to upload evidence. Please try again.', 'error');
+    } finally {
+      setUploadingEvidence(false);
+    }
+  };
+
+  const removeEvidenceItem = (url: string) => {
+    setEvidenceItems((prev) => prev.filter((item) => item.url !== url));
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit) {
       showToast('Please fix the errors before submitting.', 'error');
@@ -505,7 +551,14 @@ function CreateListingForm({ artist, onCancel, onSuccess }: CreateListingFormPro
           starting_bid: startingBid,
           shipping_tier: shippingTier,
           studio_verified: false,
-          verification_video_url: videoUrl,
+          verification_video_url: verificationMethod === 'live_video' ? videoUrl : null,
+          requested_verification_method: verificationMethod,
+          evidence_items:
+            verificationMethod === 'evidence_based'
+              ? evidenceItems.map((item) => ({ ...item, note: evidenceNote.trim() }))
+              : verificationMethod === 'studio_partner'
+              ? [{ type: 'other', url: '', note: partnerNote.trim() }]
+              : [],
         })
         .select()
         .single();
@@ -697,43 +750,155 @@ function CreateListingForm({ artist, onCancel, onSuccess }: CreateListingFormPro
               {errors.image && <p className="text-xs text-accent-500 mt-1">{errors.image}</p>}
             </div>
 
-            {/* Verification video upload */}
-            <div>
-              <label className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-2 block">Verification Video</label>
-              <input
-                ref={videoInputRef}
-                type="file"
-                accept="video/*"
-                onChange={(e) => e.target.files?.[0] && handleVideoUpload(e.target.files[0])}
-                className="hidden"
-              />
-              <button
-                onClick={() => videoInputRef.current?.click()}
-                disabled={uploadingVideo}
-                className={`w-full p-6 border-2 border-dashed transition-all duration-200 text-center ${
-                  videoUrl
-                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-                    : 'border-ink-200 dark:border-ink-700 hover:border-ink-900 dark:hover:border-ink-400'
-                }`}
-              >
-                {uploadingVideo ? (
-                  <Loader2 className="w-8 h-8 text-ink-400 mx-auto mb-2 animate-spin" />
-                ) : videoUrl ? (
-                  <>
-                    <Check className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                    <p className="text-sm font-medium">Video Uploaded</p>
-                    {videoFile && <p className="text-xs text-ink-400 mt-1 truncate">{videoFile.name}</p>}
-                  </>
-                ) : (
-                  <>
-                    <Video className="w-8 h-8 text-ink-400 mx-auto mb-2" />
-                    <p className="text-sm font-medium">Upload Video</p>
-                    <p className="text-xs text-ink-400 mt-1">5-second studio proof (max 50MB)</p>
-                  </>
-                )}
-              </button>
-              {errors.video && <p className="text-xs text-accent-500 mt-1">{errors.video}</p>}
+            {/* Verification method selector */}
+            <div className="sm:col-span-2">
+              <label className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-2 block">
+                How can we verify this piece is human-made?
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setVerificationMethod('live_video')}
+                  className={`p-3 border text-left transition-all ${
+                    verificationMethod === 'live_video'
+                      ? 'border-ink-900 dark:border-ink-100 bg-ink-50 dark:bg-ink-900'
+                      : 'border-ink-200 dark:border-ink-700'
+                  }`}
+                >
+                  <p className="text-sm font-medium">I have a process video</p>
+                  <p className="text-xs text-ink-500 mt-1">Filmed while making it. Hands/tools only is fine — no face required.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVerificationMethod('evidence_based')}
+                  className={`p-3 border text-left transition-all ${
+                    verificationMethod === 'evidence_based'
+                      ? 'border-ink-900 dark:border-ink-100 bg-ink-50 dark:bg-ink-900'
+                      : 'border-ink-200 dark:border-ink-700'
+                  }`}
+                >
+                  <p className="text-sm font-medium">This piece is already finished</p>
+                  <p className="text-xs text-ink-500 mt-1">No video, but I have WIP photos, sketches, source files, or receipts.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVerificationMethod('studio_partner')}
+                  className={`p-3 border text-left transition-all ${
+                    verificationMethod === 'studio_partner'
+                      ? 'border-ink-900 dark:border-ink-100 bg-ink-50 dark:bg-ink-900'
+                      : 'border-ink-200 dark:border-ink-700'
+                  }`}
+                >
+                  <p className="text-sm font-medium">Request in-person verification</p>
+                  <p className="text-xs text-ink-500 mt-1">A partner studio/gallery can vouch, or ask Atelier to verify in person.</p>
+                </button>
+              </div>
             </div>
+
+            {verificationMethod === 'live_video' && (
+              <div>
+                <label className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-2 block">Verification Video</label>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => e.target.files?.[0] && handleVideoUpload(e.target.files[0])}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={uploadingVideo}
+                  className={`w-full p-6 border-2 border-dashed transition-all duration-200 text-center ${
+                    videoUrl
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                      : 'border-ink-200 dark:border-ink-700 hover:border-ink-900 dark:hover:border-ink-400'
+                  }`}
+                >
+                  {uploadingVideo ? (
+                    <Loader2 className="w-8 h-8 text-ink-400 mx-auto mb-2 animate-spin" />
+                  ) : videoUrl ? (
+                    <>
+                      <Check className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                      <p className="text-sm font-medium">Video Uploaded</p>
+                      {videoFile && <p className="text-xs text-ink-400 mt-1 truncate">{videoFile.name}</p>}
+                    </>
+                  ) : (
+                    <>
+                      <Video className="w-8 h-8 text-ink-400 mx-auto mb-2" />
+                      <p className="text-sm font-medium">Upload Video</p>
+                      <p className="text-xs text-ink-400 mt-1">5-second studio proof (max 50MB)</p>
+                    </>
+                  )}
+                </button>
+                {errors.video && <p className="text-xs text-accent-500 mt-1">{errors.video}</p>}
+              </div>
+            )}
+
+            {verificationMethod === 'evidence_based' && (
+              <div className="sm:col-span-2">
+                <label className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-2 block">
+                  Evidence ({evidenceItems.length} uploaded)
+                </label>
+                <input
+                  ref={evidenceInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => e.target.files?.[0] && handleEvidenceUpload(e.target.files[0])}
+                  className="hidden"
+                />
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {evidenceItems.map((item) => (
+                    <div key={item.url} className="relative w-20 h-20 border border-ink-200 dark:border-ink-700">
+                      <img src={item.url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => removeEvidenceItem(item.url)}
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-ink-900 text-white rounded-full text-xs flex items-center justify-center"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => evidenceInputRef.current?.click()}
+                    disabled={uploadingEvidence}
+                    className="w-20 h-20 border-2 border-dashed border-ink-200 dark:border-ink-700 flex items-center justify-center hover:border-ink-900 dark:hover:border-ink-400"
+                  >
+                    {uploadingEvidence ? (
+                      <Loader2 className="w-5 h-5 text-ink-400 animate-spin" />
+                    ) : (
+                      <ImageIcon className="w-5 h-5 text-ink-400" />
+                    )}
+                  </button>
+                </div>
+                <textarea
+                  value={evidenceNote}
+                  onChange={(e) => setEvidenceNote(e.target.value)}
+                  className="w-full text-sm p-3 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded"
+                  rows={2}
+                  placeholder="Briefly describe this evidence — e.g. dated WIP photos from March, layered PSD file, receipt for canvas/paint purchase..."
+                />
+                {errors.evidence && <p className="text-xs text-accent-500 mt-1">{errors.evidence}</p>}
+              </div>
+            )}
+
+            {verificationMethod === 'studio_partner' && (
+              <div className="sm:col-span-2">
+                <label className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-2 block">
+                  Verification Request
+                </label>
+                <textarea
+                  value={partnerNote}
+                  onChange={(e) => setPartnerNote(e.target.value)}
+                  className="w-full text-sm p-3 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded"
+                  rows={3}
+                  placeholder="Which studio, gallery, or framer can vouch for this piece? Or let us know how we can arrange in-person verification."
+                />
+                <p className="text-xs text-ink-500 mt-1">
+                  This listing will be marked pending until we've followed up with you directly.
+                </p>
+                {errors.partner && <p className="text-xs text-accent-500 mt-1">{errors.partner}</p>}
+              </div>
+            )}
           </div>
 
           {/* Certification checkbox */}

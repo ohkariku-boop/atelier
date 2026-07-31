@@ -13,6 +13,14 @@ export interface Artist {
 
 export type ShippingTier = 'small_canvas' | 'medium_framed' | 'heavy_sculpture';
 
+export type VerificationMethod = 'live_video' | 'evidence_based' | 'studio_partner';
+
+export interface EvidenceItem {
+  type: 'sketch' | 'wip_photo' | 'source_file' | 'receipt' | 'other';
+  url: string;
+  note: string;
+}
+
 export interface Artwork {
   id: string;
   artist_id: string;
@@ -27,6 +35,9 @@ export interface Artwork {
   shipping_tier: ShippingTier;
   studio_verified: boolean;
   verification_video_url: string | null;
+  verification_method: VerificationMethod | null;
+  requested_verification_method: VerificationMethod | null;
+  evidence_items: EvidenceItem[];
   created_at: string;
 }
 
