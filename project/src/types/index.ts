@@ -38,6 +38,7 @@ export interface Artwork {
   verification_method: VerificationMethod | null;
   requested_verification_method: VerificationMethod | null;
   evidence_items: EvidenceItem[];
+  verified_at: string | null;
   view_count: number;
   like_count: number;
   created_at: string;

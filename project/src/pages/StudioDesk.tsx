@@ -29,6 +29,7 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
   const [disputedOrders, setDisputedOrders] = useState<(Order & { artwork_title: string })[]>([]);
   const [evidenceDrafts, setEvidenceDrafts] = useState<Record<string, string>>({});
   const [submittingEvidence, setSubmittingEvidence] = useState<string | null>(null);
+  const [soldArtworkIds, setSoldArtworkIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function load() {
@@ -78,6 +79,13 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
         (orderData || []).map((o: any) => ({ ...o, artwork_title: o.artwork?.title || 'Untitled' }))
       );
 
+      // Any artwork with an order has been sold - never eligible for relisting.
+      const { data: allOrdersData } = await supabase
+        .from('orders')
+        .select('artwork_id')
+        .in('artwork_id', artworkIds);
+      setSoldArtworkIds(new Set((allOrdersData || []).map((o: any) => o.artwork_id)));
+
       const { data: auctionData } = await supabase
         .from('auctions')
         .select('*, artwork:artworks(*)')
@@ -110,8 +118,29 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
   const artworkIdsWithActiveAuction = new Set(
     auctions.filter((a) => a.status === 'live' || a.status === 'flash' || a.status === 'upcoming').map((a) => a.artwork_id)
   );
-  const unverifiedListings = myArtworks.filter((aw) => !aw.studio_verified);
-  const readyToAuctionListings = myArtworks.filter((aw) => aw.studio_verified && !artworkIdsWithActiveAuction.has(aw.id));
+
+  // Most recent ended-auction end_time per artwork, to detect "verified before this ended" (needs resubmission).
+  const lastEndedByArtwork = new Map<string, number>();
+  auctions
+    .filter((a) => a.status === 'ended')
+    .forEach((a) => {
+      const t = new Date(a.end_time).getTime();
+      const existing = lastEndedByArtwork.get(a.artwork_id);
+      if (!existing || t > existing) lastEndedByArtwork.set(a.artwork_id, t);
+    });
+
+  const isVerified = (aw: Artwork) => aw.studio_verified && !!aw.verification_method;
+  const needsResubmission = (aw: Artwork) => {
+    const lastEnded = lastEndedByArtwork.get(aw.id);
+    if (!lastEnded) return false;
+    const verifiedAt = aw.verified_at ? new Date(aw.verified_at).getTime() : 0;
+    return verifiedAt <= lastEnded;
+  };
+
+  const notCurrentlyActive = myArtworks.filter((aw) => !artworkIdsWithActiveAuction.has(aw.id) && !soldArtworkIds.has(aw.id));
+  const resubmissionListings = notCurrentlyActive.filter((aw) => isVerified(aw) && needsResubmission(aw));
+  const readyToAuctionListings = notCurrentlyActive.filter((aw) => isVerified(aw) && !needsResubmission(aw));
+  const unverifiedListings = notCurrentlyActive.filter((aw) => !isVerified(aw));
 
   const totalRevenue = endedAuctions.reduce((sum, a) => sum + a.current_bid, 0);
   const totalBids = auctions.reduce((sum, a) => sum + a.bid_count, 0);
@@ -327,11 +356,38 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
             </section>
           )}
 
-          {/* My listings - not yet live, either pending review or verified and ready to start */}
-          {(unverifiedListings.length > 0 || readyToAuctionListings.length > 0) && (
+          {/* My listings - not yet live, either pending review, needing resubmission, or ready to start */}
+          {(unverifiedListings.length > 0 || readyToAuctionListings.length > 0 || resubmissionListings.length > 0) && (
             <section className="mb-8">
               <h2 className="text-xs uppercase tracking-widest font-semibold text-ink-500 mb-4">My Listings</h2>
               <div className="space-y-3">
+                {resubmissionListings.map((aw) => (
+                  <div key={aw.id} className="card-surface flex items-center gap-4 p-4">
+                    <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden flex-shrink-0">
+                      <img src={aw.image_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-1 block">
+                        Ended — Needs Resubmission
+                      </span>
+                      <h3 className="font-serif text-sm font-semibold truncate">{aw.title}</h3>
+                      <p className="text-xs text-ink-500">Its last auction ended since it was verified — edit to resubmit for review before relisting.</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                      <button onClick={() => { setEditingArtwork(aw); setView('create'); }} className="btn-secondary text-xs py-2 px-3">
+                        Edit &amp; Resubmit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteListing(aw.id)}
+                        disabled={deletingArtworkId === aw.id}
+                        className="text-xs text-red-600 dark:text-red-400 px-3 disabled:opacity-40"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
                 {readyToAuctionListings.map((aw) => (
                   <div key={aw.id} className="card-surface flex items-center gap-4 p-4">
                     <div className="w-16 h-16 bg-ink-100 dark:bg-ink-800 overflow-hidden flex-shrink-0">
@@ -477,7 +533,7 @@ function AuctionRow({ auction, navigate }: { auction: AuctionWithDetails; naviga
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           {auction.is_flash ? <Badge variant="flash" /> : <Badge variant="live" />}
-          {artwork.studio_verified && <Badge variant="verified" />}
+          {artwork.studio_verified && artwork.verification_method && <Badge variant="verified" />}
         </div>
         <h3 className="font-serif text-sm font-semibold truncate group-hover:text-accent-600 dark:group-hover:text-accent-400 transition-colors">
           {artwork.title}

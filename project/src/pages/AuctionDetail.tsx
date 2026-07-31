@@ -192,7 +192,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   const badges: React.ReactNode[] = [];
   if (status === 'live' && !is_flash) badges.push(<Badge key="live" variant="live" />);
   if (is_flash) badges.push(<Badge key="flash" variant="flash" />);
-  if (artwork.studio_verified) badges.push(<Badge key="verified" variant="verified" />);
+  if (artwork.studio_verified && artwork.verification_method) badges.push(<Badge key="verified" variant="verified" />);
 
   const handleBidPlaced = () => {
     setDrawerOpen(false);
@@ -345,7 +345,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
               </p>
               <p className="text-xs text-ink-500">{artist?.location}</p>
             </div>
-            {artwork.studio_verified && <ShieldCheck className="w-4 h-4 text-emerald-500" />}
+            {artwork.studio_verified && artwork.verification_method && <ShieldCheck className="w-4 h-4 text-emerald-500" />}
           </button>
 
           <div className="flex flex-wrap gap-4 mb-6 text-xs uppercase tracking-wider text-ink-500">
@@ -580,7 +580,7 @@ function CreatorStudio({ auction }: { auction: AuctionWithDetails }) {
         <div>
           <div className="flex items-center gap-2">
             <h3 className="font-serif text-xl font-semibold">{artist?.name}</h3>
-            {artwork.studio_verified && (
+            {artwork.studio_verified && artwork.verification_method && (
               <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Studio Verified
@@ -599,11 +599,11 @@ function CreatorStudio({ auction }: { auction: AuctionWithDetails }) {
           <p className="text-[10px] uppercase tracking-widest text-ink-400 mt-1">Total Sales</p>
         </div>
         <div className="bg-ink-100 dark:bg-ink-800 p-4 text-center">
-          <p className="font-mono text-2xl font-bold">{artwork.studio_verified ? '100%' : '—'}</p>
+          <p className="font-mono text-2xl font-bold">{artwork.studio_verified && artwork.verification_method ? '100%' : '—'}</p>
           <p className="text-[10px] uppercase tracking-widest text-ink-400 mt-1">Human-Made</p>
         </div>
         <div className="bg-ink-100 dark:bg-ink-800 p-4 text-center">
-          <p className="font-mono text-2xl font-bold">{artwork.studio_verified ? 'Yes' : 'No'}</p>
+          <p className="font-mono text-2xl font-bold">{artwork.studio_verified && artwork.verification_method ? 'Yes' : 'No'}</p>
           <p className="text-[10px] uppercase tracking-widest text-ink-400 mt-1">Verified</p>
         </div>
       </div>
