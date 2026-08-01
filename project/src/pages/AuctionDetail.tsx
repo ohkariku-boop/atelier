@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Gavel, ShieldCheck, Clock, TrendingUp, Play, Maximize2, Package, Lock, Heart, Eye } from 'lucide-react';
+import { ArrowLeft, Gavel, ShieldCheck, Clock, TrendingUp, Play, Maximize2, Package, Lock, Heart, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { AuctionWithDetails, Bid } from '@/types';
 import { formatCurrency, timeAgo, SHIPPING_RATES } from '@/lib/theme';
@@ -33,6 +33,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   const [likeCount, setLikeCount] = useState(0);
   const [viewCounted, setViewCounted] = useState(false);
   const [displayViewCount, setDisplayViewCount] = useState(0);
+  const [galleryOrder, setGalleryOrder] = useState<string[]>([]);
 
   const loadAuction = useCallback(async () => {
     const { data: auctionData, error } = await supabase
@@ -71,6 +72,37 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
     loadAuction();
     loadBids();
   }, [loadAuction, loadBids]);
+
+  // Fetch the default gallery order (matches GalleryFloor's default
+  // "Ending Soon" sort) once, so left/right can page through it without
+  // going back to the Gallery Floor. Fetched once per mount, not
+  // re-fetched on every auctionId change, so browsing forward/back stays
+  // within the same snapshot rather than jittering as auctions change.
+  useEffect(() => {
+    supabase
+      .from('auctions')
+      .select('id, end_time')
+      .order('end_time', { ascending: true })
+      .then(({ data }) => {
+        setGalleryOrder((data || []).map((a) => a.id));
+      });
+  }, []);
+
+  const currentGalleryIndex = galleryOrder.indexOf(auctionId);
+  const prevAuctionId = currentGalleryIndex > 0 ? galleryOrder[currentGalleryIndex - 1] : null;
+  const nextAuctionId =
+    currentGalleryIndex >= 0 && currentGalleryIndex < galleryOrder.length - 1
+      ? galleryOrder[currentGalleryIndex + 1]
+      : null;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && prevAuctionId) navigate(`auction/${prevAuctionId}`);
+      if (e.key === 'ArrowRight' && nextAuctionId) navigate(`auction/${nextAuctionId}`);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [prevAuctionId, nextAuctionId, navigate]);
 
   // Increment view count once per mount - cosmetic engagement data, not
   // a trust signal, so a small amount of over-counting from refreshes
@@ -295,6 +327,24 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                 className={`w-5 h-5 transition-colors ${liked ? 'fill-red-500 text-red-500' : 'text-ink-50'}`}
               />
             </button>
+            {prevAuctionId && (
+              <button
+                onClick={() => navigate(`auction/${prevAuctionId}`)}
+                aria-label="Previous artwork"
+                className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 bg-ink-950/60 backdrop-blur-sm rounded-full transition-transform active:scale-90 hover:bg-ink-950/80"
+              >
+                <ChevronLeft className="w-5 h-5 text-ink-50" />
+              </button>
+            )}
+            {nextAuctionId && (
+              <button
+                onClick={() => navigate(`auction/${nextAuctionId}`)}
+                aria-label="Next artwork"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-ink-950/60 backdrop-blur-sm rounded-full transition-transform active:scale-90 hover:bg-ink-950/80"
+              >
+                <ChevronRight className="w-5 h-5 text-ink-50" />
+              </button>
+            )}
           </div>
 
           <div className="flex items-center justify-between mt-3">
@@ -489,12 +539,14 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
               ) : (
                 <button
                   onClick={handleBidClick}
-                  disabled={status === 'upcoming' || status === 'ended'}
+                  disabled={status === 'upcoming' || status === 'ended' || !(artwork.studio_verified && artwork.verification_method)}
                   className="btn-accent w-full text-base py-4"
                 >
                   <span className="flex items-center justify-center gap-2">
                     {session ? <Gavel className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-                    {status === 'upcoming' ? 'Auction Not Started' : status === 'ended' ? 'Auction Ended' : session ? 'Place Bid' : 'Sign In to Bid'}
+                    {!(artwork.studio_verified && artwork.verification_method)
+                      ? 'Pending Studio Verification'
+                      : status === 'upcoming' ? 'Auction Not Started' : status === 'ended' ? 'Auction Ended' : session ? 'Place Bid' : 'Sign In to Bid'}
                   </span>
                 </button>
               )}
