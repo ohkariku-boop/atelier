@@ -1,6 +1,7 @@
 import { Moon, Sun, Palette, LayoutGrid, Package, BarChart3, LogOut, User as UserIcon } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { NotificationBell } from '@/components/NotificationBell';
 
 interface HeaderProps {
   route: { name: string };
@@ -64,6 +65,7 @@ export function Header({ route, navigate }: HeaderProps) {
           <div className="flex items-center gap-3">
             {session ? (
               <div className="flex items-center gap-2">
+                <NotificationBell navigate={navigate} />
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-ink-100 dark:bg-ink-800">
                   <div className="w-6 h-6 bg-ink-900 dark:bg-ink-50 rounded-full flex items-center justify-center text-xs font-bold text-ink-50 dark:text-ink-900">
                     {profile?.display_name?.charAt(0).toUpperCase() || 'U'}

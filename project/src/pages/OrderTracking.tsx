@@ -5,6 +5,7 @@ import type { OrderWithDetails } from '@/types';
 import { formatCurrency, formatCurrencyPrecise, timeAgo, SHIPPING_RATES } from '@/lib/theme';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
+import { completeDummyPayment } from '@/lib/closeAuction';
 
 interface OrderTrackingProps {
   navigate: (path: string) => void;
@@ -102,6 +103,17 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
     return true;
   };
 
+  const completePayment = async (orderId: string) => {
+    const { error } = await completeDummyPayment(orderId);
+    if (error) {
+      showToast(error, 'error');
+      return { error };
+    }
+    showToast('Payment complete! A receipt has been emailed to you.', 'success');
+    setRefreshKey((k) => k + 1);
+    return {};
+  };
+
   if (!session) {
     return (
       <div className="max-w-[1600px] mx-auto px-6 lg:px-10 py-20 text-center">
@@ -150,6 +162,7 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
               onUpdateTracking={() => updateTracking(order.id)}
               onConfirmDelivery={() => confirmDelivery(order.id)}
               onRaiseClaim={(reason) => raiseClaim(order.id, reason)}
+              onCompletePayment={() => completePayment(order.id)}
             />
           ))}
         </div>
@@ -163,15 +176,28 @@ interface OrderCardProps {
   onUpdateTracking: () => void;
   onConfirmDelivery: () => void;
   onRaiseClaim: (reason: string) => Promise<boolean>;
+  onCompletePayment: () => Promise<{ error?: string }>;
 }
 
-function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim }: OrderCardProps) {
+function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim, onCompletePayment }: OrderCardProps) {
   const { artwork, artist } = order;
   const shipping = SHIPPING_RATES[order.shipping_tier];
   const total = order.amount + order.shipping_cost;
   const [claimFormOpen, setClaimFormOpen] = useState(false);
   const [claimReason, setClaimReason] = useState('');
   const [submittingClaim, setSubmittingClaim] = useState(false);
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
+  const [payingNow, setPayingNow] = useState(false);
+
+  const cardValid = cardNumber.replace(/\s/g, '').length >= 12 && /^\d{2}\/\d{2}$/.test(cardExpiry) && cardCvc.length >= 3;
+
+  const handlePay = async () => {
+    setPayingNow(true);
+    await onCompletePayment();
+    setPayingNow(false);
+  };
 
   const claimWindowOpen = order.paid_at
     ? Date.now() < new Date(order.paid_at).getTime() + 72 * 60 * 60 * 1000
@@ -261,6 +287,52 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim }:
             </div>
           </div>
 
+          {/* Checkout - order won but not yet paid */}
+          {order.status === 'pending_payment' ? (
+            <div className="mb-2 p-5 bg-ink-50 dark:bg-ink-900 border border-ink-200 dark:border-ink-800">
+              <p className="text-sm font-semibold mb-1">Complete Payment</p>
+              <p className="text-xs text-ink-500 mb-4">
+                This is a simulated checkout for testing - no real card is charged. Enter any values below.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-ink-500 mb-1 block">Card Number</label>
+                  <input
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(e.target.value)}
+                    placeholder="4242 4242 4242 4242"
+                    className="w-full text-sm p-2.5 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-ink-500 mb-1 block">Expiry (MM/YY)</label>
+                  <input
+                    value={cardExpiry}
+                    onChange={(e) => setCardExpiry(e.target.value)}
+                    placeholder="12/29"
+                    className="w-full text-sm p-2.5 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-ink-500 mb-1 block">CVC</label>
+                  <input
+                    value={cardCvc}
+                    onChange={(e) => setCardCvc(e.target.value)}
+                    placeholder="123"
+                    className="w-full text-sm p-2.5 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handlePay}
+                disabled={!cardValid || payingNow}
+                className="btn-accent w-full py-3 text-sm disabled:opacity-40"
+              >
+                {payingNow ? 'Processing...' : `Pay ${formatCurrency(total)}`}
+              </button>
+            </div>
+          ) : (
+            <>
           {/* Dispute status banner */}
           {order.dispute_status !== 'none' && (
             <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
@@ -398,7 +470,9 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim }:
                 </div>
               )}
             </div>
-          </div>
+            </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -407,6 +481,7 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim }:
 
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; classes: string }> = {
+    pending_payment: { label: 'Payment Due', classes: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400' },
     escrow: { label: 'In Escrow', classes: 'bg-gold-100 text-gold-700 dark:bg-gold-500/20 dark:text-gold-400' },
     shipped: { label: 'Shipped', classes: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' },
     delivered: { label: 'Delivered', classes: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' },

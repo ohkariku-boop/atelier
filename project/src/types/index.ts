@@ -69,7 +69,7 @@ export interface Bid {
   created_at: string;
 }
 
-export type OrderStatus = 'escrow' | 'shipped' | 'delivered' | 'completed';
+export type OrderStatus = 'pending_payment' | 'escrow' | 'shipped' | 'delivered' | 'completed';
 export type DisputeStatus = 'none' | 'claim_raised' | 'evidence_submitted' | 'resolved_upheld' | 'resolved_denied';
 
 export interface Order {
@@ -94,6 +94,18 @@ export interface Order {
   evidence_submitted_at: string | null;
   resolution_notes: string | null;
   resolved_at: string | null;
+}
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string;
+  artwork_id: string | null;
+  order_id: string | null;
+  read: boolean;
+  created_at: string;
 }
 
 export type UserRole = 'buyer' | 'artist';
