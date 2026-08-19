@@ -1,7 +1,10 @@
 export const SHIPPING_RATES: Record<string, { label: string; cost: number; description: string }> = {
-  small_canvas: { label: 'Small Canvas', cost: 35, description: 'Up to 18 x 24 in' },
-  medium_framed: { label: 'Medium Framed', cost: 85, description: 'Up to 48 x 60 in' },
-  heavy_sculpture: { label: 'Heavy Sculpture', cost: 145, description: 'Over 10 lbs, crated' },
+  small_canvas: { label: 'Small Canvas (domestic)', cost: 35, description: 'Up to 18 x 24 in, domestic' },
+  medium_framed: { label: 'Medium Framed (domestic)', cost: 85, description: 'Up to 48 x 60 in, domestic' },
+  heavy_sculpture: { label: 'Heavy Sculpture (domestic)', cost: 145, description: 'Over 10 lbs, crated, domestic' },
+  intl_small: { label: 'Intl. Small', cost: 75, description: 'Small works, international economy' },
+  intl_medium: { label: 'Intl. Medium', cost: 160, description: 'Framed / medium, international' },
+  intl_heavy: { label: 'Intl. Heavy / Crated', cost: 320, description: 'Sculpture or large crate, international' },
 };
 
 export const MEDIUMS = ['Oil', 'Acrylic', 'Ceramic', 'Charcoal', 'Wood', 'Mixed Media'] as const;

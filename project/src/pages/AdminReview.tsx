@@ -243,6 +243,9 @@ export function AdminReview({ navigate }: AdminReviewProps) {
             {catalog.length} artworks · {pending.length} pending review ·{' '}
             {catalog.filter((c) => c.auction_status).length} on the floor
           </p>
+          <p className="text-[10px] uppercase tracking-widest text-ink-400 mt-2">
+            Platform pulse · {collectionList.length} collections · catalog loaded
+          </p>
         </div>
         <div className="flex gap-1 border border-ink-200 dark:border-ink-700 p-1 self-start">
           <button

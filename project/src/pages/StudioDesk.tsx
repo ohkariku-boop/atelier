@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { tryCloseAuction } from '@/lib/closeAuction';
 import { AuctionRow } from '@/components/studio/AuctionRow';
 import { CreateListingForm } from '@/components/studio/CreateListingForm';
+import { MiniBars } from '@/components/studio/MiniBars';
 
 interface StudioDeskProps {
   navigate: (path: string) => void;
@@ -292,7 +293,7 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
           </div>
 
           {/* Analytics */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div className="card-surface p-4">
               <p className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold mb-1">Views</p>
               <p className="font-mono text-xl font-bold">{totalViews}</p>
@@ -308,6 +309,25 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
             <div className="card-surface p-4">
               <p className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold mb-1">Avg sale</p>
               <p className="font-mono text-xl font-bold">{soldCount ? formatCurrency(avgBid) : '—'}</p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4 mb-8">
+            <div className="card-surface p-5">
+              <p className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold mb-3">Views by listing</p>
+              <MiniBars
+                items={[...myArtworks]
+                  .sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
+                  .map((a) => ({ label: a.title, value: a.view_count || 0 }))}
+              />
+            </div>
+            <div className="card-surface p-5">
+              <p className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold mb-3">Likes by listing</p>
+              <MiniBars
+                items={[...myArtworks]
+                  .sort((a, b) => (b.like_count || 0) - (a.like_count || 0))
+                  .map((a) => ({ label: a.title, value: a.like_count || 0 }))}
+              />
             </div>
           </div>
 

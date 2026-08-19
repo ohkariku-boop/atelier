@@ -11,7 +11,7 @@ export interface Artist {
   created_at: string;
 }
 
-export type ShippingTier = 'small_canvas' | 'medium_framed' | 'heavy_sculpture';
+export type ShippingTier = 'small_canvas' | 'medium_framed' | 'heavy_sculpture' | 'intl_small' | 'intl_medium' | 'intl_heavy';
 
 export type VerificationMethod = 'live_video' | 'evidence_based' | 'studio_partner';
 

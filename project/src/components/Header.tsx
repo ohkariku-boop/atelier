@@ -3,6 +3,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { NotificationBell } from '@/components/NotificationBell';
 import { useCurrency, CURRENCY_OPTIONS } from '@/context/CurrencyContext';
+import { PushOptIn } from '@/components/PushOptIn';
 
 interface HeaderProps {
   route: { name: string };
@@ -84,6 +85,7 @@ export function Header({ route, navigate }: HeaderProps) {
             </select>
             {session ? (
               <div className="flex items-center gap-2">
+                <div className="hidden lg:block"><PushOptIn /></div>
                 <NotificationBell navigate={navigate} />
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-ink-100 dark:bg-ink-800">
                   <div className="w-6 h-6 bg-ink-900 dark:bg-ink-50 rounded-full flex items-center justify-center text-xs font-bold text-ink-50 dark:text-ink-900">

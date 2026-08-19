@@ -1,5 +1,5 @@
-// Minimal offline shell cache for Atelier PWA
-const CACHE = 'atelier-shell-v1';
+// Atelier service worker — shell cache + push display hook
+const CACHE = 'atelier-shell-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -17,10 +17,30 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
-  // Network-first for API; cache-first for navigations
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match('./index.html'))
-    );
+    event.respondWith(fetch(request).catch(() => caches.match('./index.html')));
   }
+});
+
+// Show notifications when a push payload arrives (sender Edge Function TBD)
+self.addEventListener('push', (event) => {
+  let data = { title: 'Atelier', body: 'You have an update.' };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch {
+    /* ignore */
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Atelier', {
+      body: data.body || '',
+      icon: './vite.svg',
+      data: data.url ? { url: data.url } : {},
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || './';
+  event.waitUntil(clients.openWindow(url));
 });
