@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ShieldCheck, SlidersHorizontal, Search } from 'lucide-react';
+import { ShieldCheck, SlidersHorizontal, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { AuctionWithDetails } from '@/types';
 import { ArtworkCard } from '@/components/ArtworkCard';
@@ -10,14 +10,21 @@ interface GalleryFloorProps {
   navigate: (path: string) => void;
 }
 
-type SortOption = 'ending_soon' | 'price_low' | 'price_high' | 'newest';
+type SortOption = 'ending_soon' | 'price_low' | 'price_high' | 'newest' | 'most_bids';
+type StatusFilter = 'all_active' | 'live' | 'flash' | 'ending_soon';
+
+const PAGE_SIZE = 12;
 
 export function GalleryFloor({ navigate }: GalleryFloorProps) {
   const [auctions, setAuctions] = useState<AuctionWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMediums, setSelectedMediums] = useState<Set<string>>(new Set());
   const [sortOption, setSortOption] = useState<SortOption>('ending_soon');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all_active');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -26,7 +33,8 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
         .select(`
           *,
           artwork:artworks(*)
-        `);
+        `)
+        .in('status', ['live', 'flash', 'upcoming']);
 
       if (error || !data) {
         setLoading(false);
@@ -55,10 +63,8 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
       setAuctions(result);
       setLoading(false);
 
-      // Lazily close any overdue auctions - there is no cron job in this
-      // stack, so someone loading the gallery is what actually triggers
-      // closing. Fire-and-forget; each auction's own detail page will
-      // reflect the outcome once closed.
+      // Safety-net close for any overdue auctions. Primary closer is the
+      // scheduled Edge Function close-expired-auctions.
       const overdue = result.filter(
         (a) => a.status !== 'ended' && new Date(a.end_time).getTime() <= Date.now()
       );
@@ -66,6 +72,11 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
     }
     load();
   }, []);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setPage(1);
+  }, [selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery]);
 
   const toggleMedium = (medium: string) => {
     setSelectedMediums((prev) => {
@@ -78,32 +89,53 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
 
   const filtered = useMemo(() => {
     let result = [...auctions];
+    const now = Date.now();
 
-    if (selectedMediums.size > 0) {
-      // Real artwork.medium values are descriptive (e.g. "Oil on Linen",
-      // "Acrylic and Oil Pastel on Canvas") rather than the bare category
-      // labels shown in the filter UI - exact equality would only ever
-      // match the rare artwork whose medium happens to be the bare word
-      // itself. Match by substring instead so "Oil" correctly matches
-      // "Oil on Linen", "Impasto Oil on Canvas", etc.
-      result = result.filter((a) => {
-        const medium = a.artwork.medium.toLowerCase();
-        return Array.from(selectedMediums).some((m) => medium.includes(m.toLowerCase()));
-      });
-    }
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    // Status filter
+    if (statusFilter === 'live') {
+      result = result.filter((a) => a.status === 'live');
+    } else if (statusFilter === 'flash') {
+      result = result.filter((a) => a.status === 'flash' || a.is_flash);
+    } else if (statusFilter === 'ending_soon') {
+      const in24h = now + 24 * 60 * 60 * 1000;
       result = result.filter(
         (a) =>
-          a.artwork.title.toLowerCase().includes(q) ||
-          a.artist?.name.toLowerCase().includes(q)
+          (a.status === 'live' || a.status === 'flash') &&
+          new Date(a.end_time).getTime() <= in24h
+      );
+    }
+    // 'all_active' keeps everything already loaded (live/flash/upcoming)
+
+    // Medium filter
+    if (selectedMediums.size > 0) {
+      result = result.filter((a) => selectedMediums.has(a.artwork.medium));
+    }
+
+    // Verified only
+    if (verifiedOnly) {
+      result = result.filter(
+        (a) => a.artwork.studio_verified && !!a.artwork.verification_method
       );
     }
 
+    // Search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (a) =>
+          a.artwork.title.toLowerCase().includes(q) ||
+          a.artist?.name?.toLowerCase().includes(q) ||
+          a.artwork.medium.toLowerCase().includes(q) ||
+          (a.artwork.description || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Sort
     switch (sortOption) {
       case 'ending_soon':
-        result.sort((a, b) => new Date(a.end_time).getTime() - new Date(b.end_time).getTime());
+        result.sort(
+          (a, b) => new Date(a.end_time).getTime() - new Date(b.end_time).getTime()
+        );
         break;
       case 'price_low':
         result.sort((a, b) => a.current_bid - b.current_bid);
@@ -112,12 +144,35 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
         result.sort((a, b) => b.current_bid - a.current_bid);
         break;
       case 'newest':
-        result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        result.sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        break;
+      case 'most_bids':
+        result.sort((a, b) => b.bid_count - a.bid_count);
         break;
     }
 
     return result;
-  }, [auctions, selectedMediums, sortOption, searchQuery]);
+  }, [auctions, selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const hasActiveFilters =
+    selectedMediums.size > 0 ||
+    verifiedOnly ||
+    statusFilter !== 'all_active' ||
+    searchQuery.trim().length > 0;
+
+  const clearFilters = () => {
+    setSelectedMediums(new Set());
+    setVerifiedOnly(false);
+    setStatusFilter('all_active');
+    setSearchQuery('');
+    setPage(1);
+  };
 
   return (
     <div>
@@ -128,7 +183,9 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
           <p className="text-xs sm:text-sm font-medium tracking-wide text-center">
             <span className="font-bold uppercase tracking-wider">Anti-AI Guarantee</span>
             <span className="hidden sm:inline mx-2 text-ink-500">·</span>
-            <span className="hidden sm:inline text-ink-300">Every piece is studio-verified 100% human-made. No AI art. No digital-only assets.</span>
+            <span className="hidden sm:inline text-ink-300">
+              Every piece is studio-verified 100% human-made. No AI art. No digital-only assets.
+            </span>
             <span className="sm:hidden text-ink-300">100% human-made, studio-verified.</span>
           </p>
         </div>
@@ -138,68 +195,130 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
       <div className="max-w-[1600px] mx-auto px-6 lg:px-10 pt-12 pb-8">
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-accent-500 font-semibold mb-3">The Gallery Floor</p>
+            <p className="text-xs uppercase tracking-[0.25em] text-accent-500 font-semibold mb-3">
+              The Gallery Floor
+            </p>
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-semibold leading-[1.05] tracking-tight">
-              Curated live auctions.<br />
+              Curated live auctions.
+              <br />
               <span className="text-ink-400">Made by human hands.</span>
             </h1>
           </div>
           <p className="text-sm text-ink-500 max-w-sm leading-relaxed">
-            Browse physical artworks from verified artists worldwide. Paint, ceramic, charcoal, wood —
-            never pixels.
+            Browse physical artworks from verified artists worldwide. Paint, ceramic, charcoal,
+            wood — never pixels.
           </p>
         </div>
       </div>
 
-      {/* Filter bar */}
-      <div className="sticky top-16 z-40 bg-ink-50/80 dark:bg-ink-950/80 backdrop-blur-xl border-y border-ink-200 dark:border-ink-800">
-        <div className="max-w-[1600px] mx-auto px-6 lg:px-10 py-3">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <SlidersHorizontal className="w-4 h-4 text-ink-400" />
-              <span className="text-xs uppercase tracking-widest font-semibold text-ink-500">Filter</span>
+      {/* Filters bar */}
+      <div className="border-y border-ink-200 dark:border-ink-800 sticky top-0 z-20 bg-white/95 dark:bg-ink-950/95 backdrop-blur-sm">
+        <div className="max-w-[1600px] mx-auto px-6 lg:px-10 py-4">
+          <div className="flex flex-col gap-4">
+            {/* Search + sort + mobile filter toggle */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400" />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search title, artist, medium…"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 focus:outline-none focus:border-ink-900 dark:focus:border-ink-400 transition-colors"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={sortOption}
+                  onChange={(e) => setSortOption(e.target.value as SortOption)}
+                  className="text-sm py-2.5 px-3 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 focus:outline-none focus:border-ink-900 dark:focus:border-ink-400 transition-colors cursor-pointer"
+                >
+                  <option value="ending_soon">Ending Soon</option>
+                  <option value="price_low">Price: Low to High</option>
+                  <option value="price_high">Price: High to Low</option>
+                  <option value="newest">Newest</option>
+                  <option value="most_bids">Most Bids</option>
+                </select>
+
+                <button
+                  onClick={() => setFiltersOpen((v) => !v)}
+                  className={`sm:hidden flex items-center gap-1.5 text-sm py-2.5 px-3 border transition-colors ${
+                    filtersOpen || hasActiveFilters
+                      ? 'border-ink-900 dark:border-ink-400 bg-ink-50 dark:bg-ink-900'
+                      : 'border-ink-200 dark:border-ink-700'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Filters
+                  {hasActiveFilters && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent-500" />
+                  )}
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {MEDIUMS.map((medium) => {
-                const active = selectedMediums.has(medium);
-                return (
+            {/* Status chips + verified + mediums (always visible on md+) */}
+            <div className={`${filtersOpen ? 'block' : 'hidden'} sm:block space-y-3`}>
+              <div className="flex flex-wrap gap-2 items-center">
+                {(
+                  [
+                    ['all_active', 'All Active'],
+                    ['live', 'Live'],
+                    ['flash', 'Flash'],
+                    ['ending_soon', 'Ending Soon'],
+                  ] as [StatusFilter, string][]
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setStatusFilter(value)}
+                    className={`text-xs uppercase tracking-wider px-3 py-1.5 border transition-colors ${
+                      statusFilter === value
+                        ? 'border-ink-900 dark:border-ink-300 bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                        : 'border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-400 hover:border-ink-400'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setVerifiedOnly((v) => !v)}
+                  className={`text-xs uppercase tracking-wider px-3 py-1.5 border transition-colors flex items-center gap-1.5 ${
+                    verifiedOnly
+                      ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
+                      : 'border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-400 hover:border-ink-400'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Verified only
+                </button>
+
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="text-xs text-accent-600 dark:text-accent-400 font-medium hover:underline ml-1"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {MEDIUMS.map((medium) => (
                   <button
                     key={medium}
                     onClick={() => toggleMedium(medium)}
-                    className={`px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-                      active
-                        ? 'bg-ink-900 text-ink-50 dark:bg-ink-50 dark:text-ink-900'
-                        : 'border border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-400 hover:border-ink-900 dark:hover:border-ink-400'
+                    className={`text-xs px-3 py-1.5 border transition-colors ${
+                      selectedMediums.has(medium)
+                        ? 'border-ink-900 dark:border-ink-300 bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                        : 'border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-400 hover:border-ink-400'
                     }`}
                   >
                     {medium}
                   </button>
-                );
-              })}
-            </div>
-
-            <div className="flex items-center gap-2 lg:ml-auto">
-              <div className="relative flex-1 lg:w-48">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search art or artist..."
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-transparent border border-ink-200 dark:border-ink-700 focus:outline-none focus:border-ink-900 dark:focus:border-ink-400 transition-colors"
-                />
+                ))}
               </div>
-              <select
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value as SortOption)}
-                className="px-3 py-2 text-xs font-medium bg-transparent border border-ink-200 dark:border-ink-700 focus:outline-none focus:border-ink-900 dark:focus:border-ink-400 transition-colors cursor-pointer"
-              >
-                <option value="ending_soon">Ending Soon</option>
-                <option value="price_low">Price: Low to High</option>
-                <option value="price_high">Price: High to Low</option>
-                <option value="newest">Newest</option>
-              </select>
             </div>
           </div>
         </div>
@@ -224,7 +343,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <p className="text-ink-400 text-lg font-serif">No artworks match your filters.</p>
             <button
-              onClick={() => { setSelectedMediums(new Set()); setSearchQuery(''); }}
+              onClick={clearFilters}
               className="mt-4 text-sm text-accent-600 dark:text-accent-400 font-medium hover:underline"
             >
               Clear all filters
@@ -234,9 +353,16 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
           <>
             <p className="text-xs text-ink-400 mb-6 uppercase tracking-widest">
               {filtered.length} {filtered.length === 1 ? 'piece' : 'pieces'} on the floor
+              {totalPages > 1 && (
+                <span className="normal-case tracking-normal text-ink-500">
+                  {' '}
+                  · page {safePage} of {totalPages}
+                </span>
+              )}
             </p>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filtered.map((auction) => (
+              {pageItems.map((auction) => (
                 <ArtworkCard
                   key={auction.id}
                   auction={auction}
@@ -245,6 +371,31 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
                 />
               ))}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 mt-12">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                  className="p-2 border border-ink-200 dark:border-ink-700 disabled:opacity-30 hover:border-ink-400 transition-colors"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-ink-500 font-mono">
+                  {safePage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                  className="p-2 border border-ink-200 dark:border-ink-700 disabled:opacity-30 hover:border-ink-400 transition-colors"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
