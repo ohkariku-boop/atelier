@@ -1,5 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ShieldCheck, Clock, CheckCircle2, CreditCard } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+
 
 interface TrustSafetyProps {
   navigate: (path: string) => void;
@@ -7,6 +9,23 @@ interface TrustSafetyProps {
 }
 
 export function TrustSafety({ section }: TrustSafetyProps) {
+  const [stats, setStats] = useState({ verified: 0, artists: 0, live: 0 });
+
+  useEffect(() => {
+    (async () => {
+      const [v, a, l] = await Promise.all([
+        supabase.from('artworks').select('id', { count: 'exact', head: true }).eq('studio_verified', true),
+        supabase.from('artists').select('id', { count: 'exact', head: true }),
+        supabase.from('auctions').select('id', { count: 'exact', head: true }).in('status', ['live', 'flash']),
+      ]);
+      setStats({
+        verified: v.count || 0,
+        artists: a.count || 0,
+        live: l.count || 0,
+      });
+    })();
+  }, []);
+
   useEffect(() => {
     if (section) {
       const el = document.getElementById(section);
@@ -21,10 +40,25 @@ export function TrustSafety({ section }: TrustSafetyProps) {
   return (
     <div className="max-w-[900px] mx-auto px-6 lg:px-10 py-16">
       <h1 className="font-serif text-3xl md:text-4xl font-semibold mb-4">Trust &amp; Safety</h1>
-      <p className="text-ink-500 leading-relaxed mb-16 max-w-2xl">
+      <p className="text-ink-500 leading-relaxed mb-8 max-w-2xl">
         Atelier exists because AI-generated images made it hard to know what's real. Here's exactly
         what we check, what we guarantee, and what happens if something goes wrong.
       </p>
+
+      <div className="grid grid-cols-3 gap-4 mb-16 max-w-xl">
+        <div className="card-surface p-4 text-center">
+          <p className="font-mono text-2xl font-bold">{stats.verified}</p>
+          <p className="text-[10px] uppercase tracking-widest text-ink-400 mt-1">Verified works</p>
+        </div>
+        <div className="card-surface p-4 text-center">
+          <p className="font-mono text-2xl font-bold">{stats.artists}</p>
+          <p className="text-[10px] uppercase tracking-widest text-ink-400 mt-1">Artists</p>
+        </div>
+        <div className="card-surface p-4 text-center">
+          <p className="font-mono text-2xl font-bold">{stats.live}</p>
+          <p className="text-[10px] uppercase tracking-widest text-ink-400 mt-1">Live now</p>
+        </div>
+      </div>
 
       <section id="anti-ai" className="mb-16 scroll-mt-24">
         <div className="flex items-center gap-3 mb-4">

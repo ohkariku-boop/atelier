@@ -1,4 +1,4 @@
-import { Moon, Sun, Palette, LayoutGrid, Package, BarChart3, LogOut, User as UserIcon, ShieldCheck } from 'lucide-react';
+import { Moon, Sun, Palette, LayoutGrid, Package, BarChart3, LogOut, User as UserIcon, ShieldCheck, MessageSquare } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -21,6 +21,9 @@ export function Header({ route, navigate }: HeaderProps) {
       ? [{ name: 'admin', label: 'Admin', icon: ShieldCheck, path: 'admin' }]
       : []),
     { name: 'orders', label: 'Orders', icon: Package, path: 'orders' },
+    ...(session
+      ? [{ name: 'messages', label: 'Messages', icon: MessageSquare, path: 'messages' }]
+      : []),
   ];
 
   const handleSignOut = async () => {

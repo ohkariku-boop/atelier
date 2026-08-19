@@ -6,6 +6,7 @@ import { ArtworkCard } from '@/components/ArtworkCard';
 import { MEDIUMS } from '@/lib/theme';
 import { tryCloseAuction } from '@/lib/closeAuction';
 import { setPageMeta } from '@/lib/pageMeta';
+import { useAuth } from '@/context/AuthContext';
 
 interface GalleryFloorProps {
   navigate: (path: string) => void;
@@ -17,6 +18,7 @@ type StatusFilter = 'all_active' | 'live' | 'flash' | 'ending_soon';
 const PAGE_SIZE = 12;
 
 export function GalleryFloor({ navigate }: GalleryFloorProps) {
+  const { session } = useAuth();
   const [auctions, setAuctions] = useState<AuctionWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMediums, setSelectedMediums] = useState<Set<string>>(new Set());
@@ -27,6 +29,8 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [collections, setCollections] = useState<{ id: string; slug: string; title: string; description: string | null }[]>([]);
+  const [followedArtistIds, setFollowedArtistIds] = useState<Set<string>>(new Set());
+  const [showFollowingOnly, setShowFollowingOnly] = useState(false);
 
   useEffect(() => {
     setPageMeta({
@@ -80,6 +84,16 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
       overdue.forEach((a) => tryCloseAuction(a.id));
 
       // Curated collections (ignore if table not migrated yet)
+      if (session?.user?.id) {
+        try {
+          const { data: fol } = await supabase
+            .from('artist_follows')
+            .select('artist_id')
+            .eq('user_id', session.user.id);
+          if (fol) setFollowedArtistIds(new Set(fol.map((f: any) => f.artist_id)));
+        } catch { /* optional */ }
+      }
+
       try {
         const { data: cols } = await supabase
           .from('collections')
@@ -139,6 +153,10 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
       );
     }
 
+    if (showFollowingOnly && followedArtistIds.size > 0) {
+      result = result.filter((a) => a.artist?.id && followedArtistIds.has(a.artist.id));
+    }
+
     // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -175,7 +193,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
     }
 
     return result;
-  }, [auctions, selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery]);
+  }, [auctions, selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery, showFollowingOnly, followedArtistIds]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -314,6 +332,19 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
                   <ShieldCheck className="w-3.5 h-3.5" />
                   Verified only
                 </button>
+
+                {session && followedArtistIds.size > 0 && (
+                  <button
+                    onClick={() => setShowFollowingOnly((v) => !v)}
+                    className={`text-xs uppercase tracking-wider px-3 py-1.5 border transition-colors ${
+                      showFollowingOnly
+                        ? 'border-ink-900 dark:border-ink-300 bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                        : 'border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-400 hover:border-ink-400'
+                    }`}
+                  >
+                    Following
+                  </button>
+                )}
 
                 {hasActiveFilters && (
                   <button

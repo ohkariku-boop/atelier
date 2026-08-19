@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Gavel, ShieldCheck, Clock, TrendingUp, Play, Maximize2, Package, Lock, Heart, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Gavel, ShieldCheck, Clock, TrendingUp, Play, Maximize2, Package, Lock, Heart, Eye, ChevronLeft, ChevronRight, MessageSquare, Award } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { AuctionWithDetails, Bid } from '@/types';
 import { formatCurrency, timeAgo, SHIPPING_RATES } from '@/lib/theme';
@@ -46,6 +46,28 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
     });
     return () => resetPageMeta();
   }, [auction?.id, auction?.artwork?.title]);
+
+
+  const messageArtist = async () => {
+    if (!session) {
+      showToast('Sign in to message the artist.', 'error');
+      navigate('auth');
+      return;
+    }
+    if (!auction?.artwork?.user_id) {
+      showToast('Artist contact unavailable.', 'error');
+      return;
+    }
+    const { data, error } = await supabase.rpc('open_or_get_conversation', {
+      p_artwork_id: auction.artwork.id,
+      p_artist_user_id: auction.artwork.user_id,
+    });
+    if (error) {
+      showToast(error.message || 'Could not open conversation. Run the messages migration first.', 'error');
+      return;
+    }
+    navigate(`messages/${data}`);
+  };
 
   const loadAuction = useCallback(async () => {
     const { data: auctionData, error } = await supabase
@@ -580,6 +602,25 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                   <p className="text-xs text-ink-500">{shipping.description} · Escrow held until tracking confirmed</p>
                 </div>
               </div>
+
+              {(artwork as any).certificate_number && (
+                <div className="card-surface p-4 mb-4 flex items-start gap-3">
+                  <Award className="w-5 h-5 text-gold-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-ink-400 font-semibold">Certificate of Authenticity</p>
+                    <p className="font-mono text-sm mt-1">{(artwork as any).certificate_number}</p>
+                    <p className="text-xs text-ink-500 mt-1">Studio-verified human-made work on Atelier.</p>
+                  </div>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={messageArtist}
+                className="btn-secondary w-full text-sm mb-4 flex items-center justify-center gap-2"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Message artist
+              </button>
 
               {/* Bid history */}
               <div>

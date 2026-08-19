@@ -72,3 +72,17 @@
 .zoom-cursor {
   cursor: zoom-in;
 }
+
+
+/* Mobile safe areas + touch targets */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+@media (max-width: 640px) {
+  .btn-primary, .btn-secondary, .btn-accent {
+    min-height: 44px;
+  }
+}
