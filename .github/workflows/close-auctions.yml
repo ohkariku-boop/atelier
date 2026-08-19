@@ -1,0 +1,44 @@
+name: Close Expired Auctions
+
+# Runs every 5 minutes. Uses the service role key stored as a GitHub secret
+# so it can call the close-expired-auctions Edge Function.
+#
+# Required repository secrets:
+#   SUPABASE_FUNCTION_URL  – e.g. https://xxxx.supabase.co/functions/v1/close-expired-auctions
+#   SUPABASE_SERVICE_ROLE_KEY (or CRON_SECRET if you set one on the function)
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 minutes
+  workflow_dispatch:        # allow manual trigger from the Actions tab
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Call close-expired-auctions
+        env:
+          FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$FUNCTION_URL" ] || [ -z "$SERVICE_KEY" ]; then
+            echo "Missing SUPABASE_FUNCTION_URL or SUPABASE_SERVICE_ROLE_KEY secret – skipping."
+            exit 0
+          fi
+
+          response=$(curl -s -w "\n%{http_code}" -X POST "$FUNCTION_URL" \
+            -H "Authorization: Bearer $SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+
+          body=$(echo "$response" | sed '$d')
+          status=$(echo "$response" | tail -n1)
+
+          echo "HTTP $status"
+          echo "$body" | jq . 2>/dev/null || echo "$body"
+
+          if [ "$status" -ge 400 ]; then
+            echo "Function returned error status"
+            exit 1
+          fi
