@@ -41,6 +41,7 @@ export interface Artwork {
   verified_at: string | null;
   certificate_number: string | null;
   certificate_issued_at: string | null;
+  is_featured: boolean;
   view_count: number;
   like_count: number;
   created_at: string;

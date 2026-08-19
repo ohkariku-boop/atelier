@@ -15,6 +15,7 @@ import { TrustSafety } from '@/pages/TrustSafety';
 import { AuthPage } from '@/pages/AuthPage';
 import { AdminReview } from '@/pages/AdminReview';
 import { MessagesPage } from '@/pages/MessagesPage';
+import { CollectionPage } from '@/pages/CollectionPage';
 import { Loader2 } from 'lucide-react';
 
 function AppContent() {
@@ -56,6 +57,8 @@ function AppContent() {
           <AdminReview navigate={navigate} />
         ) : route.name === 'messages' ? (
           <MessagesPage navigate={navigate} conversationId={route.conversationId} />
+        ) : route.name === 'collection' ? (
+          <CollectionPage slug={route.slug} navigate={navigate} />
         ) : null}
       </main>
       <Footer navigate={navigate} />

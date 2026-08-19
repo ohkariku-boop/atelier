@@ -9,7 +9,8 @@ export type Route =
   | { name: 'auth' }
   | { name: 'trust'; section?: string }
   | { name: 'admin' }
-  | { name: 'messages'; conversationId?: string };
+  | { name: 'messages'; conversationId?: string }
+  | { name: 'collection'; slug: string };
 
 function parseHash(): Route {
   const hash = window.location.hash.slice(1);
@@ -26,6 +27,7 @@ function parseHash(): Route {
   if (parts[0] === 'trust') return { name: 'trust', section: parts[1] };
   if (parts[0] === 'admin') return { name: 'admin' };
   if (parts[0] === 'messages') return { name: 'messages', conversationId: parts[1] };
+  if (parts[0] === 'collection' && parts[1]) return { name: 'collection', slug: parts[1] };
   return { name: 'gallery' };
 }
 

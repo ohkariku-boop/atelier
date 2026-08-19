@@ -31,6 +31,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
   const [collections, setCollections] = useState<{ id: string; slug: string; title: string; description: string | null }[]>([]);
   const [followedArtistIds, setFollowedArtistIds] = useState<Set<string>>(new Set());
   const [showFollowingOnly, setShowFollowingOnly] = useState(false);
+  const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
   const [ftsIds, setFtsIds] = useState<Set<string> | null>(null);
 
   useEffect(() => {
@@ -183,6 +184,10 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
       result = result.filter((a) => a.artist?.id && followedArtistIds.has(a.artist.id));
     }
 
+    if (showFeaturedOnly) {
+      result = result.filter((a) => !!(a.artwork as any).is_featured);
+    }
+
     // Search — prefer FTS ranks when RPC available
     if (searchQuery.trim()) {
       if (ftsIds) {
@@ -223,7 +228,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
     }
 
     return result;
-  }, [auctions, selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery, showFollowingOnly, followedArtistIds, ftsIds]);
+  }, [auctions, selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery, showFollowingOnly, followedArtistIds, ftsIds, showFeaturedOnly]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -363,6 +368,17 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
                   Verified only
                 </button>
 
+                <button
+                  onClick={() => setShowFeaturedOnly((v) => !v)}
+                  className={`text-xs uppercase tracking-wider px-3 py-1.5 border transition-colors ${
+                    showFeaturedOnly
+                      ? 'border-ink-900 dark:border-ink-300 bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                      : 'border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-400 hover:border-ink-400'
+                  }`}
+                >
+                  Featured
+                </button>
+
                 {session && followedArtistIds.size > 0 && (
                   <button
                     onClick={() => setShowFollowingOnly((v) => !v)}
@@ -412,12 +428,20 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
           <p className="text-xs uppercase tracking-[0.25em] text-ink-400 font-semibold mb-4">Collections</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {collections.map((c) => (
-              <div key={c.id} className="card-surface p-5">
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => navigate(`collection/${c.slug}`)}
+                className="card-surface p-5 text-left hover:border-ink-900 dark:hover:border-ink-400 transition-colors"
+              >
                 <h3 className="font-serif text-lg font-semibold">{c.title}</h3>
                 {c.description && (
                   <p className="text-sm text-ink-500 mt-1 leading-relaxed">{c.description}</p>
                 )}
-              </div>
+                <p className="text-[10px] uppercase tracking-widest text-accent-600 dark:text-accent-400 mt-3">
+                  View collection
+                </p>
+              </button>
             ))}
           </div>
         </div>

@@ -33,7 +33,7 @@ interface CatalogRow extends Artwork {
   current_bid?: number | null;
 }
 
-type AdminTab = 'review' | 'catalog' | 'collections';
+type AdminTab = 'review' | 'catalog' | 'collections' | 'disputes';
 
 const methodLabel: Record<string, string> = {
   live_video: 'Live process video',
@@ -66,6 +66,9 @@ export function AdminReview({ navigate }: AdminReviewProps) {
   const [newColDesc, setNewColDesc] = useState('');
   const [addArtworkId, setAddArtworkId] = useState('');
   const [colBusy, setColBusy] = useState(false);
+  const [disputeOrders, setDisputeOrders] = useState<any[]>([]);
+  const [disputeNotes, setDisputeNotes] = useState<Record<string, string>>({});
+  const [disputeBusy, setDisputeBusy] = useState<string | null>(null);
 
   const loadPending = async () => {
     setLoadingPending(true);
@@ -156,11 +159,21 @@ export function AdminReview({ navigate }: AdminReviewProps) {
     setCollectionItems(data || []);
   };
 
+  const loadDisputes = async () => {
+    const { data } = await supabase
+      .from('orders')
+      .select('*, artwork:artworks(title, image_url)')
+      .in('dispute_status', ['claim_raised', 'evidence_submitted'])
+      .order('created_at', { ascending: false });
+    setDisputeOrders(data || []);
+  };
+
   useEffect(() => {
     if (!session) return;
     loadPending();
     loadCatalog();
     loadCollections();
+    loadDisputes();
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -268,6 +281,21 @@ export function AdminReview({ navigate }: AdminReviewProps) {
             }`}
           >
             Collections
+          </button>
+          <button
+            onClick={() => setTab('disputes')}
+            className={`text-xs uppercase tracking-wider px-4 py-2 flex items-center gap-1.5 transition-colors ${
+              tab === 'disputes'
+                ? 'bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                : 'text-ink-500 hover:text-ink-900 dark:hover:text-ink-100'
+            }`}
+          >
+            Disputes
+            {disputeOrders.length > 0 && (
+              <span className="ml-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {disputeOrders.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setTab('review')}
@@ -415,6 +443,24 @@ export function AdminReview({ navigate }: AdminReviewProps) {
                             }}
                           >
                             Copy ID
+                          </button>
+                          <button
+                            type="button"
+                            className="block w-full text-[10px] text-accent-600 dark:text-accent-400 hover:underline mt-0.5"
+                            onClick={async () => {
+                              const next = !(row as any).is_featured;
+                              const { error } = await supabase.rpc('set_artwork_featured', {
+                                p_artwork_id: row.id,
+                                p_featured: next,
+                              });
+                              if (error) showToast(error.message, 'error');
+                              else {
+                                showToast(next ? 'Featured' : 'Unfeatured', 'success');
+                                loadCatalog();
+                              }
+                            }}
+                          >
+                            {(row as any).is_featured ? 'Unfeature' : 'Feature'}
                           </button>
                         </td>
                       </tr>
@@ -590,6 +636,90 @@ export function AdminReview({ navigate }: AdminReviewProps) {
             )}
           </div>
         </div>
+
+      ) : tab === 'disputes' ? (
+        <div className="space-y-4">
+          {disputeOrders.length === 0 ? (
+            <div className="card-surface p-10 text-center">
+              <p className="font-serif text-lg">No open disputes</p>
+              <p className="text-sm text-ink-500 mt-1">Claims and evidence queues are clear.</p>
+            </div>
+          ) : (
+            disputeOrders.map((order) => (
+              <div key={order.id} className="card-surface p-5 space-y-3">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {order.artwork?.image_url && (
+                    <div className="w-20 h-20 bg-ink-100 dark:bg-ink-800 overflow-hidden flex-shrink-0">
+                      <img src={order.artwork.image_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-serif font-semibold">{order.artwork?.title || 'Order'}</p>
+                    <p className="text-xs text-ink-500">
+                      {order.buyer_name} · {order.dispute_status} · {order.receipt_number || order.id.slice(0, 8)}
+                    </p>
+                    {order.claim_reason && (
+                      <p className="text-sm mt-2 text-ink-600 dark:text-ink-300">Claim: {order.claim_reason}</p>
+                    )}
+                    {order.evidence_notes && (
+                      <p className="text-sm mt-1 text-ink-500">Evidence: {order.evidence_notes}</p>
+                    )}
+                  </div>
+                </div>
+                <textarea
+                  value={disputeNotes[order.id] || ''}
+                  onChange={(e) => setDisputeNotes((prev) => ({ ...prev, [order.id]: e.target.value }))}
+                  rows={2}
+                  placeholder="Resolution notes (optional)"
+                  className="w-full text-sm p-3 border border-ink-200 dark:border-ink-700 bg-transparent"
+                />
+                <div className="flex gap-2">
+                  <button
+                    className="btn-primary text-xs"
+                    disabled={disputeBusy === order.id}
+                    onClick={async () => {
+                      setDisputeBusy(order.id);
+                      const { error } = await supabase.rpc('resolve_order_dispute', {
+                        p_order_id: order.id,
+                        p_uphold: true,
+                        p_notes: disputeNotes[order.id] || null,
+                      });
+                      setDisputeBusy(null);
+                      if (error) showToast(error.message, 'error');
+                      else {
+                        showToast('Claim upheld', 'success');
+                        loadDisputes();
+                      }
+                    }}
+                  >
+                    Uphold claim
+                  </button>
+                  <button
+                    className="btn-secondary text-xs text-red-600"
+                    disabled={disputeBusy === order.id}
+                    onClick={async () => {
+                      setDisputeBusy(order.id);
+                      const { error } = await supabase.rpc('resolve_order_dispute', {
+                        p_order_id: order.id,
+                        p_uphold: false,
+                        p_notes: disputeNotes[order.id] || null,
+                      });
+                      setDisputeBusy(null);
+                      if (error) showToast(error.message, 'error');
+                      else {
+                        showToast('Claim denied', 'success');
+                        loadDisputes();
+                      }
+                    }}
+                  >
+                    Deny claim
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
       ) : loadingPending ? (
         <div className="flex justify-center py-16">
           <Loader2 className="w-8 h-8 animate-spin text-ink-400" />
