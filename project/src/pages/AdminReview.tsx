@@ -33,7 +33,7 @@ interface CatalogRow extends Artwork {
   current_bid?: number | null;
 }
 
-type AdminTab = 'review' | 'catalog';
+type AdminTab = 'review' | 'catalog' | 'collections';
 
 const methodLabel: Record<string, string> = {
   live_video: 'Live process video',
@@ -57,6 +57,15 @@ export function AdminReview({ navigate }: AdminReviewProps) {
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'verified' | 'unverified' | 'live'>('all');
+
+  // Collections admin
+  const [collectionList, setCollectionList] = useState<any[]>([]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [collectionItems, setCollectionItems] = useState<any[]>([]);
+  const [newColTitle, setNewColTitle] = useState('');
+  const [newColDesc, setNewColDesc] = useState('');
+  const [addArtworkId, setAddArtworkId] = useState('');
+  const [colBusy, setColBusy] = useState(false);
 
   const loadPending = async () => {
     setLoadingPending(true);
@@ -129,11 +138,35 @@ export function AdminReview({ navigate }: AdminReviewProps) {
     setLoadingCatalog(false);
   };
 
+
+  const loadCollections = async () => {
+    const { data } = await supabase
+      .from('collections')
+      .select('*')
+      .order('sort_order');
+    setCollectionList(data || []);
+  };
+
+  const loadCollectionItems = async (collectionId: string) => {
+    const { data } = await supabase
+      .from('collection_items')
+      .select('artwork_id, sort_order, artwork:artworks(id, title, image_url)')
+      .eq('collection_id', collectionId)
+      .order('sort_order');
+    setCollectionItems(data || []);
+  };
+
   useEffect(() => {
     if (!session) return;
     loadPending();
     loadCatalog();
+    loadCollections();
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (selectedCollectionId) loadCollectionItems(selectedCollectionId);
+    else setCollectionItems([]);
+  }, [selectedCollectionId]);
 
   const review = async (artworkId: string, approve: boolean, method?: string | null) => {
     setActingId(artworkId);
@@ -222,6 +255,16 @@ export function AdminReview({ navigate }: AdminReviewProps) {
           >
             <LayoutGrid className="w-3.5 h-3.5" />
             Catalog
+          </button>
+          <button
+            onClick={() => setTab('collections')}
+            className={`text-xs uppercase tracking-wider px-4 py-2 flex items-center gap-1.5 transition-colors ${
+              tab === 'collections'
+                ? 'bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                : 'text-ink-500 hover:text-ink-900 dark:hover:text-ink-100'
+            }`}
+          >
+            Collections
           </button>
           <button
             onClick={() => setTab('review')}
@@ -360,6 +403,16 @@ export function AdminReview({ navigate }: AdminReviewProps) {
                           ) : (
                             <span className="text-xs text-ink-400">No auction</span>
                           )}
+                          <button
+                            type="button"
+                            className="block w-full text-[10px] text-ink-400 hover:text-ink-700 dark:hover:text-ink-200 mt-1"
+                            onClick={() => {
+                              navigator.clipboard?.writeText(row.id);
+                              showToast('Artwork ID copied', 'success');
+                            }}
+                          >
+                            Copy ID
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -372,6 +425,168 @@ export function AdminReview({ navigate }: AdminReviewProps) {
             </div>
           )}
         </>
+      ) : tab === 'collections' ? (
+        <div className="grid md:grid-cols-[280px_1fr] gap-6">
+          <div className="space-y-4">
+            <div className="card-surface p-4 space-y-3">
+              <p className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold">New collection</p>
+              <input
+                value={newColTitle}
+                onChange={(e) => setNewColTitle(e.target.value)}
+                placeholder="Title"
+                className="w-full text-sm px-3 py-2 border border-ink-200 dark:border-ink-700 bg-transparent"
+              />
+              <textarea
+                value={newColDesc}
+                onChange={(e) => setNewColDesc(e.target.value)}
+                placeholder="Description"
+                rows={2}
+                className="w-full text-sm px-3 py-2 border border-ink-200 dark:border-ink-700 bg-transparent"
+              />
+              <button
+                disabled={colBusy || newColTitle.trim().length < 2}
+                className="btn-primary text-xs w-full"
+                onClick={async () => {
+                  setColBusy(true);
+                  const slug = newColTitle
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '')
+                    .slice(0, 40);
+                  const { error } = await supabase.from('collections').insert({
+                    title: newColTitle.trim(),
+                    description: newColDesc.trim() || null,
+                    slug: slug || `col-${Date.now()}`,
+                    is_published: true,
+                    sort_order: collectionList.length,
+                  });
+                  setColBusy(false);
+                  if (error) showToast(error.message, 'error');
+                  else {
+                    showToast('Collection created', 'success');
+                    setNewColTitle('');
+                    setNewColDesc('');
+                    loadCollections();
+                  }
+                }}
+              >
+                Create
+              </button>
+            </div>
+            <div className="border border-ink-200 dark:border-ink-800 divide-y divide-ink-100 dark:divide-ink-800">
+              {collectionList.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCollectionId(c.id)}
+                  className={`w-full text-left px-3 py-3 text-sm ${
+                    selectedCollectionId === c.id
+                      ? 'bg-ink-100 dark:bg-ink-800'
+                      : 'hover:bg-ink-50 dark:hover:bg-ink-900'
+                  }`}
+                >
+                  <p className="font-medium">{c.title}</p>
+                  <p className="text-[10px] text-ink-400">
+                    {c.is_published ? 'Published' : 'Draft'} · {c.slug}
+                  </p>
+                </button>
+              ))}
+              {collectionList.length === 0 && (
+                <p className="p-4 text-xs text-ink-400">No collections yet.</p>
+              )}
+            </div>
+          </div>
+          <div>
+            {!selectedCollectionId ? (
+              <p className="text-ink-400 text-sm py-10">Select a collection to manage artworks.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold">
+                      Add artwork ID
+                    </label>
+                    <input
+                      value={addArtworkId}
+                      onChange={(e) => setAddArtworkId(e.target.value)}
+                      placeholder="Paste artwork UUID from catalog"
+                      className="w-full text-sm px-3 py-2 border border-ink-200 dark:border-ink-700 bg-transparent mt-1"
+                    />
+                  </div>
+                  <button
+                    className="btn-primary text-xs"
+                    disabled={colBusy || !addArtworkId.trim()}
+                    onClick={async () => {
+                      setColBusy(true);
+                      const { error } = await supabase.from('collection_items').insert({
+                        collection_id: selectedCollectionId,
+                        artwork_id: addArtworkId.trim(),
+                        sort_order: collectionItems.length,
+                      });
+                      setColBusy(false);
+                      if (error) showToast(error.message, 'error');
+                      else {
+                        showToast('Artwork added', 'success');
+                        setAddArtworkId('');
+                        loadCollectionItems(selectedCollectionId);
+                      }
+                    }}
+                  >
+                    Add
+                  </button>
+                  <button
+                    className="btn-secondary text-xs"
+                    onClick={async () => {
+                      const col = collectionList.find((c) => c.id === selectedCollectionId);
+                      if (!col) return;
+                      const { error } = await supabase
+                        .from('collections')
+                        .update({ is_published: !col.is_published })
+                        .eq('id', selectedCollectionId);
+                      if (error) showToast(error.message, 'error');
+                      else {
+                        showToast(col.is_published ? 'Unpublished' : 'Published', 'success');
+                        loadCollections();
+                      }
+                    }}
+                  >
+                    Toggle publish
+                  </button>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {collectionItems.map((item) => (
+                    <div key={item.artwork_id} className="card-surface p-3 flex gap-3 items-center">
+                      <div className="w-14 h-14 bg-ink-100 dark:bg-ink-800 overflow-hidden flex-shrink-0">
+                        {item.artwork?.image_url && (
+                          <img src={item.artwork.image_url} alt="" className="w-full h-full object-cover" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{item.artwork?.title || item.artwork_id}</p>
+                        <button
+                          className="text-[10px] text-red-600 hover:underline mt-1"
+                          onClick={async () => {
+                            const { error } = await supabase
+                              .from('collection_items')
+                              .delete()
+                              .eq('collection_id', selectedCollectionId)
+                              .eq('artwork_id', item.artwork_id);
+                            if (error) showToast(error.message, 'error');
+                            else loadCollectionItems(selectedCollectionId!);
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {collectionItems.length === 0 && (
+                  <p className="text-sm text-ink-400">No artworks in this collection yet.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       ) : loadingPending ? (
         <div className="flex justify-center py-16">
           <Loader2 className="w-8 h-8 animate-spin text-ink-400" />

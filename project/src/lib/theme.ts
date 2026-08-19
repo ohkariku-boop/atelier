@@ -6,21 +6,67 @@ export const SHIPPING_RATES: Record<string, { label: string; cost: number; descr
 
 export const MEDIUMS = ['Oil', 'Acrylic', 'Ceramic', 'Charcoal', 'Wood', 'Mixed Media'] as const;
 
+export type DisplayCurrency = 'USD' | 'EUR' | 'GBP' | 'SGD' | 'JPY';
+
+const RATES: Record<DisplayCurrency, number> = {
+  USD: 1,
+  EUR: 0.92,
+  GBP: 0.79,
+  SGD: 1.35,
+  JPY: 149,
+};
+
+let displayCurrency: DisplayCurrency = 'USD';
+
+try {
+  const saved = localStorage.getItem('atelier_currency') as DisplayCurrency | null;
+  if (saved && RATES[saved]) displayCurrency = saved;
+} catch {
+  /* SSR / private mode */
+}
+
+/** Used by CurrencyContext so formatCurrency picks up the selection app-wide. */
+export function setDisplayCurrency(c: DisplayCurrency) {
+  displayCurrency = c;
+  try {
+    localStorage.setItem('atelier_currency', c);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getDisplayCurrency(): DisplayCurrency {
+  return displayCurrency;
+}
+
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+  const converted = amount * RATES[displayCurrency];
+  const digits = displayCurrency === 'JPY' ? 0 : 0;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: displayCurrency,
+      maximumFractionDigits: digits,
+      minimumFractionDigits: 0,
+    }).format(converted);
+  } catch {
+    return `$${amount.toFixed(0)}`;
+  }
 }
 
 export function formatCurrencyPrecise(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(amount);
+  const converted = amount * RATES[displayCurrency];
+  const digits = displayCurrency === 'JPY' ? 0 : 2;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: displayCurrency,
+      maximumFractionDigits: digits,
+      minimumFractionDigits: digits,
+    }).format(converted);
+  } catch {
+    return `$${amount.toFixed(2)}`;
+  }
 }
 
 export function timeAgo(dateString: string): string {

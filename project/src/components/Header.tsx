@@ -2,6 +2,7 @@ import { Moon, Sun, Palette, LayoutGrid, Package, BarChart3, LogOut, User as Use
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { NotificationBell } from '@/components/NotificationBell';
+import { useCurrency, CURRENCY_OPTIONS } from '@/context/CurrencyContext';
 
 interface HeaderProps {
   route: { name: string };
@@ -11,6 +12,7 @@ interface HeaderProps {
 export function Header({ route, navigate }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { session, profile, signOut } = useAuth();
+  const { currency, setCurrency } = useCurrency();
 
   const navItems = [
     { name: 'gallery', label: 'Gallery Floor', icon: LayoutGrid, path: '' },
@@ -69,6 +71,17 @@ export function Header({ route, navigate }: HeaderProps) {
           </nav>
 
           <div className="flex items-center gap-3">
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as typeof currency)}
+              className="text-xs py-1.5 px-2 border border-ink-200 dark:border-ink-700 bg-transparent focus:outline-none cursor-pointer"
+              aria-label="Display currency"
+              title="Display currency only — settlements remain USD"
+            >
+              {CURRENCY_OPTIONS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
             {session ? (
               <div className="flex items-center gap-2">
                 <NotificationBell navigate={navigate} />

@@ -31,6 +31,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
   const [collections, setCollections] = useState<{ id: string; slug: string; title: string; description: string | null }[]>([]);
   const [followedArtistIds, setFollowedArtistIds] = useState<Set<string>>(new Set());
   const [showFollowingOnly, setShowFollowingOnly] = useState(false);
+  const [ftsIds, setFtsIds] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     setPageMeta({
@@ -111,7 +112,32 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
   // Reset to page 1 whenever filters change
   useEffect(() => {
     setPage(1);
-  }, [selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery]);
+  }, [selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery, showFollowingOnly]);
+
+  // Server full-text search when available
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setFtsIds(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc('search_artworks', {
+        p_query: q,
+        p_limit: 100,
+      });
+      if (cancelled) return;
+      if (error || !data) {
+        setFtsIds(null); // fall back to client filter
+        return;
+      }
+      setFtsIds(new Set((data as { id: string }[]).map((r) => r.id)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchQuery]);
 
   const toggleMedium = (medium: string) => {
     setSelectedMediums((prev) => {
@@ -157,16 +183,20 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
       result = result.filter((a) => a.artist?.id && followedArtistIds.has(a.artist.id));
     }
 
-    // Search
+    // Search — prefer FTS ranks when RPC available
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (a) =>
-          a.artwork.title.toLowerCase().includes(q) ||
-          a.artist?.name?.toLowerCase().includes(q) ||
-          a.artwork.medium.toLowerCase().includes(q) ||
-          (a.artwork.description || '').toLowerCase().includes(q)
-      );
+      if (ftsIds) {
+        result = result.filter((a) => ftsIds.has(a.artwork.id));
+      } else {
+        const q = searchQuery.toLowerCase().trim();
+        result = result.filter(
+          (a) =>
+            a.artwork.title.toLowerCase().includes(q) ||
+            a.artist?.name?.toLowerCase().includes(q) ||
+            a.artwork.medium.toLowerCase().includes(q) ||
+            (a.artwork.description || '').toLowerCase().includes(q)
+        );
+      }
     }
 
     // Sort
@@ -193,7 +223,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
     }
 
     return result;
-  }, [auctions, selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery, showFollowingOnly, followedArtistIds]);
+  }, [auctions, selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery, showFollowingOnly, followedArtistIds, ftsIds]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);

@@ -1,4 +1,5 @@
 import { ThemeProvider } from '@/context/ThemeContext';
+import { CurrencyProvider } from '@/context/CurrencyContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { useRouter } from '@/lib/router';
@@ -65,13 +66,15 @@ function AppContent() {
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <ErrorBoundary>
-            <AppContent />
-          </ErrorBoundary>
-        </ToastProvider>
-      </AuthProvider>
+      <CurrencyProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <ErrorBoundary>
+              <AppContent />
+            </ErrorBoundary>
+          </ToastProvider>
+        </AuthProvider>
+      </CurrencyProvider>
     </ThemeProvider>
   );
 }
