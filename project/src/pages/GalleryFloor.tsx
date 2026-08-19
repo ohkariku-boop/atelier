@@ -26,6 +26,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [collections, setCollections] = useState<{ id: string; slug: string; title: string; description: string | null }[]>([]);
 
   useEffect(() => {
     setPageMeta({
@@ -77,6 +78,18 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
         (a) => a.status !== 'ended' && new Date(a.end_time).getTime() <= Date.now()
       );
       overdue.forEach((a) => tryCloseAuction(a.id));
+
+      // Curated collections (ignore if table not migrated yet)
+      try {
+        const { data: cols } = await supabase
+          .from('collections')
+          .select('id, slug, title, description')
+          .eq('is_published', true)
+          .order('sort_order');
+        if (cols) setCollections(cols as any);
+      } catch {
+        /* table may not exist yet */
+      }
     }
     load();
   }, []);
@@ -331,6 +344,23 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
           </div>
         </div>
       </div>
+
+      {/* Collections */}
+      {collections.length > 0 && (
+        <div className="max-w-[1600px] mx-auto px-6 lg:px-10 pt-8">
+          <p className="text-xs uppercase tracking-[0.25em] text-ink-400 font-semibold mb-4">Collections</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {collections.map((c) => (
+              <div key={c.id} className="card-surface p-5">
+                <h3 className="font-serif text-lg font-semibold">{c.title}</h3>
+                {c.description && (
+                  <p className="text-sm text-ink-500 mt-1 leading-relaxed">{c.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Grid */}
       <div className="max-w-[1600px] mx-auto px-6 lg:px-10 py-8">

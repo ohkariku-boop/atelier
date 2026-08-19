@@ -147,6 +147,11 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
 
   const totalRevenue = endedAuctions.reduce((sum, a) => sum + a.current_bid, 0);
   const totalBids = auctions.reduce((sum, a) => sum + a.bid_count, 0);
+  const totalViews = myArtworks.reduce((sum, a) => sum + (a.view_count || 0), 0);
+  const totalLikes = myArtworks.reduce((sum, a) => sum + (a.like_count || 0), 0);
+  const soldCount = endedAuctions.filter((a) => a.outcome === 'sold').length;
+  const avgBid = totalBids > 0 ? totalRevenue / Math.max(soldCount, 1) : 0;
+
 
   const resolveSale = async (auctionId: string, accept: boolean) => {
     const { error } = await supabase.rpc('resolve_pending_sale', {
@@ -283,6 +288,26 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
                 <span className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold">Listings</span>
               </div>
               <p className="font-mono text-2xl font-bold">{myArtworks.length}</p>
+            </div>
+          </div>
+
+          {/* Analytics */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="card-surface p-4">
+              <p className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold mb-1">Views</p>
+              <p className="font-mono text-xl font-bold">{totalViews}</p>
+            </div>
+            <div className="card-surface p-4">
+              <p className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold mb-1">Likes</p>
+              <p className="font-mono text-xl font-bold">{totalLikes}</p>
+            </div>
+            <div className="card-surface p-4">
+              <p className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold mb-1">Sold</p>
+              <p className="font-mono text-xl font-bold">{soldCount}</p>
+            </div>
+            <div className="card-surface p-4">
+              <p className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold mb-1">Avg sale</p>
+              <p className="font-mono text-xl font-bold">{soldCount ? formatCurrency(avgBid) : '—'}</p>
             </div>
           </div>
 

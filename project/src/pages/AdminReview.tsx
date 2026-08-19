@@ -1,10 +1,22 @@
-import { useEffect, useState } from 'react';
-import { ShieldCheck, Loader2, Check, X, Video, FileImage, Building2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ShieldCheck,
+  Loader2,
+  Check,
+  X,
+  Video,
+  FileImage,
+  Building2,
+  LayoutGrid,
+  Search,
+  Gavel,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import type { Artwork } from '@/types';
-import { timeAgo } from '@/lib/theme';
+import { formatCurrency, timeAgo } from '@/lib/theme';
+import { Badge } from '@/components/Badge';
 
 interface AdminReviewProps {
   navigate: (path: string) => void;
@@ -13,6 +25,15 @@ interface AdminReviewProps {
 interface PendingArtwork extends Artwork {
   artist_name?: string;
 }
+
+interface CatalogRow extends Artwork {
+  artist_name?: string;
+  auction_status?: string | null;
+  auction_id?: string | null;
+  current_bid?: number | null;
+}
+
+type AdminTab = 'review' | 'catalog';
 
 const methodLabel: Record<string, string> = {
   live_video: 'Live process video',
@@ -23,14 +44,22 @@ const methodLabel: Record<string, string> = {
 export function AdminReview({ navigate }: AdminReviewProps) {
   const { profile, session } = useAuth();
   const { showToast } = useToast();
-  const [items, setItems] = useState<PendingArtwork[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<AdminTab>('catalog');
+
+  // Review queue
+  const [pending, setPending] = useState<PendingArtwork[]>([]);
+  const [loadingPending, setLoadingPending] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
 
-  const load = async () => {
-    setLoading(true);
-    // Pending = not verified, has some submission signal
+  // Catalog
+  const [catalog, setCatalog] = useState<CatalogRow[]>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'verified' | 'unverified' | 'live'>('all');
+
+  const loadPending = async () => {
+    setLoadingPending(true);
     const { data, error } = await supabase
       .from('artworks')
       .select('*, artist:artists(name)')
@@ -39,7 +68,7 @@ export function AdminReview({ navigate }: AdminReviewProps) {
 
     if (error) {
       showToast(error.message, 'error');
-      setLoading(false);
+      setLoadingPending(false);
       return;
     }
 
@@ -47,8 +76,6 @@ export function AdminReview({ navigate }: AdminReviewProps) {
       ...row,
       artist_name: row.artist?.name,
     }));
-
-    // Prefer those with a requested method or evidence; still show all unverified for ops
     mapped.sort((a, b) => {
       const score = (x: PendingArtwork) =>
         (x.requested_verification_method ? 2 : 0) +
@@ -56,19 +83,61 @@ export function AdminReview({ navigate }: AdminReviewProps) {
         ((x.evidence_items?.length || 0) > 0 ? 1 : 0);
       return score(b) - score(a);
     });
+    setPending(mapped);
+    setLoadingPending(false);
+  };
 
-    setItems(mapped);
-    setLoading(false);
+  const loadCatalog = async () => {
+    setLoadingCatalog(true);
+    const { data: artworks, error } = await supabase
+      .from('artworks')
+      .select('*, artist:artists(name)')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      showToast(error.message, 'error');
+      setLoadingCatalog(false);
+      return;
+    }
+
+    const { data: auctions } = await supabase
+      .from('auctions')
+      .select('id, artwork_id, status, current_bid')
+      .in('status', ['live', 'flash', 'upcoming']);
+
+    const byArtwork = new Map<string, { id: string; status: string; current_bid: number }>();
+    (auctions || []).forEach((a: any) => {
+      byArtwork.set(a.artwork_id, {
+        id: a.id,
+        status: a.status,
+        current_bid: a.current_bid,
+      });
+    });
+
+    const rows: CatalogRow[] = ((artworks || []) as any[]).map((row) => {
+      const auc = byArtwork.get(row.id);
+      return {
+        ...row,
+        artist_name: row.artist?.name,
+        auction_status: auc?.status ?? null,
+        auction_id: auc?.id ?? null,
+        current_bid: auc?.current_bid ?? null,
+      };
+    });
+
+    setCatalog(rows);
+    setLoadingCatalog(false);
   };
 
   useEffect(() => {
-    if (session) load();
-    else setLoading(false);
+    if (!session) return;
+    loadPending();
+    loadCatalog();
   }, [session?.user?.id]);
 
   const review = async (artworkId: string, approve: boolean, method?: string | null) => {
     setActingId(artworkId);
-    const { data, error } = await supabase.rpc('review_artwork_verification', {
+    const { error } = await supabase.rpc('review_artwork_verification', {
       p_artwork_id: artworkId,
       p_approve: approve,
       p_method: method || null,
@@ -85,13 +154,31 @@ export function AdminReview({ navigate }: AdminReviewProps) {
       approve ? 'Artwork verified. Artist notified.' : 'Verification rejected. Artist notified.',
       'success'
     );
-    setItems((prev) => prev.filter((i) => i.id !== artworkId));
+    setPending((prev) => prev.filter((i) => i.id !== artworkId));
+    loadCatalog();
   };
+
+  const filteredCatalog = useMemo(() => {
+    let rows = [...catalog];
+    if (filter === 'verified') rows = rows.filter((r) => r.studio_verified);
+    if (filter === 'unverified') rows = rows.filter((r) => !r.studio_verified);
+    if (filter === 'live') rows = rows.filter((r) => r.auction_status === 'live' || r.auction_status === 'flash');
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      rows = rows.filter(
+        (r) =>
+          r.title.toLowerCase().includes(q) ||
+          (r.artist_name || '').toLowerCase().includes(q) ||
+          r.medium.toLowerCase().includes(q)
+      );
+    }
+    return rows;
+  }, [catalog, filter, search]);
 
   if (!session) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-20 text-center">
-        <p className="text-ink-400">Sign in with an admin account to review verifications.</p>
+        <p className="text-ink-400">Sign in with an admin account.</p>
         <button onClick={() => navigate('auth')} className="btn-primary mt-4 text-sm">
           Sign In
         </button>
@@ -104,9 +191,6 @@ export function AdminReview({ navigate }: AdminReviewProps) {
       <div className="max-w-3xl mx-auto px-6 py-20 text-center">
         <ShieldCheck className="w-10 h-10 mx-auto text-ink-300 mb-4" />
         <p className="text-ink-400 text-lg">Admin access required</p>
-        <p className="text-sm text-ink-500 mt-2">
-          This queue is only available to platform administrators.
-        </p>
         <button onClick={() => navigate('')} className="btn-secondary mt-6 text-sm">
           Back to Gallery
         </button>
@@ -115,24 +199,184 @@ export function AdminReview({ navigate }: AdminReviewProps) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-6 lg:px-10 py-10">
-      <div className="mb-8">
-        <p className="text-xs uppercase tracking-[0.25em] text-accent-500 font-semibold mb-2">
-          Operations
-        </p>
-        <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight">
-          Verification Review
-        </h1>
-        <p className="text-sm text-ink-500 mt-2">
-          Approve or reject studio verification for listings. Artists are notified in-app.
-        </p>
+    <div className="max-w-6xl mx-auto px-6 lg:px-10 py-10">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-accent-500 font-semibold mb-2">
+            Operations
+          </p>
+          <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight">Admin</h1>
+          <p className="text-sm text-ink-500 mt-2">
+            {catalog.length} artworks · {pending.length} pending review ·{' '}
+            {catalog.filter((c) => c.auction_status).length} on the floor
+          </p>
+        </div>
+        <div className="flex gap-1 border border-ink-200 dark:border-ink-700 p-1 self-start">
+          <button
+            onClick={() => setTab('catalog')}
+            className={`text-xs uppercase tracking-wider px-4 py-2 flex items-center gap-1.5 transition-colors ${
+              tab === 'catalog'
+                ? 'bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                : 'text-ink-500 hover:text-ink-900 dark:hover:text-ink-100'
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            Catalog
+          </button>
+          <button
+            onClick={() => setTab('review')}
+            className={`text-xs uppercase tracking-wider px-4 py-2 flex items-center gap-1.5 transition-colors ${
+              tab === 'review'
+                ? 'bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                : 'text-ink-500 hover:text-ink-900 dark:hover:text-ink-100'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Review
+            {pending.length > 0 && (
+              <span className="ml-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {pending.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
-      {loading ? (
+      {tab === 'catalog' ? (
+        <>
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search title, artist, medium…"
+                className="w-full pl-10 pr-4 py-2.5 text-sm border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 focus:outline-none focus:border-ink-900 dark:focus:border-ink-400"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ['all', 'All'],
+                  ['verified', 'Verified'],
+                  ['unverified', 'Unverified'],
+                  ['live', 'On floor'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setFilter(value)}
+                  className={`text-xs uppercase tracking-wider px-3 py-2 border transition-colors ${
+                    filter === value
+                      ? 'border-ink-900 dark:border-ink-300 bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                      : 'border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loadingCatalog ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin text-ink-400" />
+            </div>
+          ) : filteredCatalog.length === 0 ? (
+            <p className="text-center text-ink-400 py-16">No artworks match.</p>
+          ) : (
+            <div className="border border-ink-200 dark:border-ink-800 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-ink-200 dark:border-ink-800 text-left text-[10px] uppercase tracking-widest text-ink-400">
+                      <th className="p-3 font-semibold">Artwork</th>
+                      <th className="p-3 font-semibold hidden md:table-cell">Artist</th>
+                      <th className="p-3 font-semibold hidden sm:table-cell">Medium</th>
+                      <th className="p-3 font-semibold">Status</th>
+                      <th className="p-3 font-semibold hidden lg:table-cell">Auction</th>
+                      <th className="p-3 font-semibold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCatalog.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="border-b border-ink-100 dark:border-ink-800/80 hover:bg-ink-50 dark:hover:bg-ink-900/40"
+                      >
+                        <td className="p-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-12 h-12 bg-ink-100 dark:bg-ink-800 overflow-hidden flex-shrink-0">
+                              <img
+                                src={row.image_url}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-serif font-semibold truncate">{row.title}</p>
+                              <p className="text-[10px] text-ink-400 md:hidden">{row.artist_name}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 hidden md:table-cell text-ink-600 dark:text-ink-300">
+                          {row.artist_name || '—'}
+                        </td>
+                        <td className="p-3 hidden sm:table-cell text-ink-500">{row.medium}</td>
+                        <td className="p-3">
+                          {row.studio_verified ? (
+                            <Badge variant="verified" />
+                          ) : (
+                            <span className="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                              Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 hidden lg:table-cell">
+                          {row.auction_status ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-ink-600 dark:text-ink-300">
+                              <Gavel className="w-3 h-3" />
+                              {row.auction_status}
+                              {row.current_bid != null && (
+                                <span className="font-mono text-ink-400">
+                                  · {formatCurrency(row.current_bid)}
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-ink-400">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right">
+                          {row.auction_id ? (
+                            <button
+                              onClick={() => navigate(`auction/${row.auction_id}`)}
+                              className="text-xs text-accent-600 dark:text-accent-400 hover:underline"
+                            >
+                              View auction
+                            </button>
+                          ) : (
+                            <span className="text-xs text-ink-400">No auction</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[10px] uppercase tracking-widest text-ink-400 p-3 border-t border-ink-200 dark:border-ink-800">
+                Showing {filteredCatalog.length} of {catalog.length}
+              </p>
+            </div>
+          )}
+        </>
+      ) : loadingPending ? (
         <div className="flex justify-center py-16">
           <Loader2 className="w-8 h-8 animate-spin text-ink-400" />
         </div>
-      ) : items.length === 0 ? (
+      ) : pending.length === 0 ? (
         <div className="card-surface p-10 text-center">
           <ShieldCheck className="w-8 h-8 mx-auto text-emerald-500 mb-3" />
           <p className="font-serif text-lg">Queue is clear</p>
@@ -140,7 +384,7 @@ export function AdminReview({ navigate }: AdminReviewProps) {
         </div>
       ) : (
         <div className="space-y-6">
-          {items.map((aw) => {
+          {pending.map((aw) => {
             const method = aw.requested_verification_method || aw.verification_method;
             return (
               <article key={aw.id} className="card-surface overflow-hidden">
@@ -158,11 +402,8 @@ export function AdminReview({ navigate }: AdminReviewProps) {
                         <h2 className="font-serif text-lg font-semibold">{aw.title}</h2>
                         <p className="text-xs text-ink-500">
                           {aw.artist_name || 'Unknown artist'} · {aw.medium}
-                          {aw.dimensions ? ` · ${aw.dimensions}` : ''}
                         </p>
-                        <p className="text-[10px] text-ink-400 mt-1">
-                          Listed {timeAgo(aw.created_at)}
-                        </p>
+                        <p className="text-[10px] text-ink-400 mt-1">Listed {timeAgo(aw.created_at)}</p>
                       </div>
                       {method && (
                         <span className="text-[10px] uppercase tracking-wider px-2 py-1 border border-ink-200 dark:border-ink-700 flex items-center gap-1">
@@ -173,12 +414,6 @@ export function AdminReview({ navigate }: AdminReviewProps) {
                         </span>
                       )}
                     </div>
-
-                    {aw.description && (
-                      <p className="text-sm text-ink-600 dark:text-ink-300 line-clamp-3">
-                        {aw.description}
-                      </p>
-                    )}
 
                     {aw.verification_video_url && (
                       <a
@@ -193,39 +428,32 @@ export function AdminReview({ navigate }: AdminReviewProps) {
                     )}
 
                     {(aw.evidence_items?.length || 0) > 0 && (
-                      <div className="space-y-1">
-                        <p className="text-[10px] uppercase tracking-widest text-ink-400 font-semibold">
-                          Evidence
-                        </p>
-                        <ul className="space-y-1">
-                          {aw.evidence_items.map((ev, idx) => (
-                            <li key={idx} className="text-xs text-ink-600 dark:text-ink-300">
-                              <span className="font-medium">{ev.type}</span>
-                              {ev.note ? ` — ${ev.note}` : ''}
-                              {ev.url && (
-                                <>
-                                  {' · '}
-                                  <a
-                                    href={ev.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-accent-600 dark:text-accent-400 hover:underline"
-                                  >
-                                    view
-                                  </a>
-                                </>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      <ul className="space-y-1">
+                        {aw.evidence_items.map((ev, idx) => (
+                          <li key={idx} className="text-xs text-ink-600 dark:text-ink-300">
+                            <span className="font-medium">{ev.type}</span>
+                            {ev.note ? ` — ${ev.note}` : ''}
+                            {ev.url && (
+                              <>
+                                {' · '}
+                                <a
+                                  href={ev.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-accent-600 dark:text-accent-400 hover:underline"
+                                >
+                                  view
+                                </a>
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
                     )}
 
                     <textarea
                       value={notes[aw.id] || ''}
-                      onChange={(e) =>
-                        setNotes((prev) => ({ ...prev, [aw.id]: e.target.value }))
-                      }
+                      onChange={(e) => setNotes((prev) => ({ ...prev, [aw.id]: e.target.value }))}
                       rows={2}
                       placeholder="Optional notes (sent to artist on reject)"
                       className="w-full text-sm p-3 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded"
@@ -235,11 +463,7 @@ export function AdminReview({ navigate }: AdminReviewProps) {
                       <button
                         disabled={actingId === aw.id}
                         onClick={() =>
-                          review(
-                            aw.id,
-                            true,
-                            aw.requested_verification_method || 'evidence_based'
-                          )
+                          review(aw.id, true, aw.requested_verification_method || 'evidence_based')
                         }
                         className="btn-primary text-xs flex items-center gap-1.5"
                       >

@@ -18,7 +18,7 @@ export function Header({ route, navigate }: HeaderProps) {
       ? [{ name: 'studio', label: 'Studio Desk', icon: BarChart3, path: 'studio' }]
       : []),
     ...(profile?.role === 'admin'
-      ? [{ name: 'admin', label: 'Review', icon: ShieldCheck, path: 'admin' }]
+      ? [{ name: 'admin', label: 'Admin', icon: ShieldCheck, path: 'admin' }]
       : []),
     { name: 'orders', label: 'Orders', icon: Package, path: 'orders' },
   ];

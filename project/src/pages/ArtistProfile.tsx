@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import type { Artist, AuctionWithDetails } from '@/types';
 import { ArtworkCard } from '@/components/ArtworkCard';
 import { tryCloseAuction } from '@/lib/closeAuction';
+import { FollowArtistButton } from '@/components/FollowArtistButton';
 
 interface ArtistProfileProps {
   artistId: string;
@@ -130,6 +131,9 @@ export function ArtistProfile({ artistId, navigate }: ArtistProfileProps) {
           <p className="text-xs text-ink-400 mt-1">
             {artist.total_sales} {artist.total_sales === 1 ? 'sale' : 'sales'}
           </p>
+          <div className="mt-3">
+            <FollowArtistButton artistId={artist.id} />
+          </div>
         </div>
       </div>
 

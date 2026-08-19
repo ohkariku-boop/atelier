@@ -1,0 +1,18 @@
+{
+  "name": "Atelier — Human Art Auctions",
+  "short_name": "Atelier",
+  "description": "Live auctions of studio-verified, 100% human-made physical art.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1a1917",
+  "theme_color": "#1a1917",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "./vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
