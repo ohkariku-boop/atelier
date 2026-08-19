@@ -20,6 +20,8 @@ function destinationFor(n: AppNotification): string {
     case 'verification_approved':
     case 'verification_rejected':
       return 'studio';
+    case 'dispute_resolved':
+      return 'orders';
     default:
       if (n.order_id) return 'orders';
       if (n.artwork_id) return 'studio';

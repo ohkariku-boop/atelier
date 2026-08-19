@@ -28,6 +28,7 @@ export function Footer({ navigate }: FooterProps) {
               <li onClick={() => navigate('gallery')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Gallery Floor</li>
               <li onClick={() => navigate('studio')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Studio Desk</li>
               <li onClick={() => navigate('orders')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Orders & Tracking</li>
+              <li onClick={() => navigate('messages')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Messages</li>
             </ul>
           </div>
           <div>
@@ -36,7 +37,7 @@ export function Footer({ navigate }: FooterProps) {
               <li onClick={() => navigate('trust/anti-ai')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Anti-AI Guarantee</li>
               <li onClick={() => navigate('trust/verification')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Studio Verification</li>
               <li onClick={() => navigate('trust/escrow')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Escrow Protection</li>
-              <li onClick={() => navigate('trust/payouts')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Stripe Connect Payouts</li>
+              <li onClick={() => navigate('trust/payouts')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Payouts (coming soon)</li>
             </ul>
           </div>
         </div>
