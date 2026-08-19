@@ -1,4 +1,4 @@
-import { Moon, Sun, Palette, LayoutGrid, Package, BarChart3, LogOut, User as UserIcon } from 'lucide-react';
+import { Moon, Sun, Palette, LayoutGrid, Package, BarChart3, LogOut, User as UserIcon, ShieldCheck } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -16,6 +16,9 @@ export function Header({ route, navigate }: HeaderProps) {
     { name: 'gallery', label: 'Gallery Floor', icon: LayoutGrid, path: '' },
     ...(profile?.role === 'artist'
       ? [{ name: 'studio', label: 'Studio Desk', icon: BarChart3, path: 'studio' }]
+      : []),
+    ...(profile?.role === 'admin'
+      ? [{ name: 'admin', label: 'Review', icon: ShieldCheck, path: 'admin' }]
       : []),
     { name: 'orders', label: 'Orders', icon: Package, path: 'orders' },
   ];

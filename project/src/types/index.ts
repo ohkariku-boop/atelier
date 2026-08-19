@@ -108,7 +108,7 @@ export interface AppNotification {
   created_at: string;
 }
 
-export type UserRole = 'buyer' | 'artist';
+export type UserRole = 'buyer' | 'artist' | 'admin';
 
 export interface Profile {
   id: string;

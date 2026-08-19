@@ -12,6 +12,7 @@ import { StudioDesk } from '@/pages/StudioDesk';
 import { OrderTracking } from '@/pages/OrderTracking';
 import { TrustSafety } from '@/pages/TrustSafety';
 import { AuthPage } from '@/pages/AuthPage';
+import { AdminReview } from '@/pages/AdminReview';
 import { Loader2 } from 'lucide-react';
 
 function AppContent() {
@@ -26,7 +27,7 @@ function AppContent() {
     );
   }
 
-  const isProtectedRoute = route.name === 'studio' || route.name === 'orders';
+  const isProtectedRoute = route.name === 'studio' || route.name === 'orders' || route.name === 'admin';
   const needsAuth = isProtectedRoute && !session;
 
   return (
@@ -49,6 +50,8 @@ function AppContent() {
           <OrderTracking navigate={navigate} />
         ) : route.name === 'trust' ? (
           <TrustSafety navigate={navigate} section={route.section} />
+        ) : route.name === 'admin' ? (
+          <AdminReview navigate={navigate} />
         ) : null}
       </main>
       <Footer navigate={navigate} />

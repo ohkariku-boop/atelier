@@ -17,6 +17,8 @@ function destinationFor(n: AppNotification): string {
       return n.order_id ? 'orders' : 'studio';
     case 'seller_review':
     case 'auction_no_bids':
+    case 'verification_approved':
+    case 'verification_rejected':
       return 'studio';
     default:
       if (n.order_id) return 'orders';
