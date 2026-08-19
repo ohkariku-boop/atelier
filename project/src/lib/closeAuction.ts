@@ -2,10 +2,16 @@ import { supabase } from '@/lib/supabase';
 
 /**
  * Calls close_expired_auction for a specific auction. Safe to call on any
- * auction regardless of whether it has actually ended - the RPC itself
+ * auction regardless of whether it has actually ended — the RPC itself
  * checks end_time and is a no-op if it's not due yet or already closed.
  *
- * Winning no longer means "paid" - an order created here starts in
+ * This is a frontend safety net. The primary closer is the scheduled
+ * Edge Function `close-expired-auctions` which calls
+ * close_all_expired_auctions() every few minutes. Keeping the per-page
+ * call ensures that even if the cron is delayed, a user viewing the
+ * gallery or auction page still triggers a close.
+ *
+ * Winning no longer means "paid" — an order created here starts in
  * 'pending_payment'. The buyer gets an in-app notification (inserted by
  * the RPC itself) and completes checkout separately; see
  * completeDummyPayment below for what happens once they do.
