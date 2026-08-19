@@ -10,6 +10,7 @@ import { BidDrawer } from '@/components/BidDrawer';
 import { tryCloseAuction } from '@/lib/closeAuction';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
+import { setPageMeta, resetPageMeta } from '@/lib/pageMeta';
 
 interface AuctionDetailProps {
   auctionId: string;
@@ -34,6 +35,17 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   const [viewCounted, setViewCounted] = useState(false);
   const [displayViewCount, setDisplayViewCount] = useState(0);
   const [galleryOrder, setGalleryOrder] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!auction) return;
+    const { artwork, artist } = auction;
+    setPageMeta({
+      title: `${artwork.title} — Atelier Auction`,
+      description: (artwork.description || `${artwork.medium} by ${artist?.name || 'a verified artist'}`).slice(0, 160),
+      image: artwork.image_url,
+    });
+    return () => resetPageMeta();
+  }, [auction?.id, auction?.artwork?.title]);
 
   const loadAuction = useCallback(async () => {
     const { data: auctionData, error } = await supabase
@@ -317,7 +329,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
               if (!liked) toggleLike();
             }}
           >
-            <ImageZoom src={artwork.image_url} alt={artwork.title} className="w-full h-full" />
+            <ImageZoom src={artwork.image_url} alt={artwork.title} className="w-full h-full" onOpenFullscreen={() => setFullscreen(true)} />
             <button
               onClick={toggleLike}
               aria-label={liked ? 'Unlike' : 'Like'}

@@ -5,6 +5,7 @@ import type { AuctionWithDetails } from '@/types';
 import { ArtworkCard } from '@/components/ArtworkCard';
 import { MEDIUMS } from '@/lib/theme';
 import { tryCloseAuction } from '@/lib/closeAuction';
+import { setPageMeta } from '@/lib/pageMeta';
 
 interface GalleryFloorProps {
   navigate: (path: string) => void;
@@ -25,6 +26,13 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    setPageMeta({
+      title: 'Gallery Floor — Atelier',
+      description: 'Browse live auctions of studio-verified, 100% human-made physical art.',
+    });
+  }, []);
 
   useEffect(() => {
     async function load() {
