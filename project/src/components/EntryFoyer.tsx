@@ -12,6 +12,20 @@ const SPREAD = 0.012 * (1.1 - VISCOSITY * 0.4);
 const MAX_PARTICLES = 55;
 const MIN_MOVE_INTERVAL = 55;
 
+/** Saturated ink / pigment colors for splatters */
+const INK_PALETTE = [
+  '#c41e3a', // cardinal red
+  '#1d4ed8', // cobalt
+  '#ca8a04', // ochre gold
+  '#0f766e', // viridian
+  '#7c3aed', // violet
+  '#ea580c', // cadmium orange
+  '#be185d', // magenta
+  '#0369a1', // cerulean
+  '#15803d', // sap green
+  '#9f1239', // alizarin
+];
+
 export type FoyerSlide = {
   id: string;
   title: string;
@@ -35,6 +49,7 @@ type InkDrop = {
   life: number;
   maxLife: number;
   variant: number;
+  color: string;
 };
 
 interface EntryFoyerProps {
@@ -149,10 +164,11 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
           targetSize: 10 + Math.random() * (burst > 3 ? 34 : 18),
           rot: Math.random() * 360,
           spin: (Math.random() - 0.5) * 2,
-          opacity: 0.4 + Math.random() * 0.5,
+          opacity: 0.55 + Math.random() * 0.4,
           life: 0,
           maxLife: 90 + Math.floor(Math.random() * 50),
           variant: Math.floor(Math.random() * 3),
+          color: INK_PALETTE[Math.floor(Math.random() * INK_PALETTE.length)],
         });
       }
 
@@ -291,6 +307,8 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
               height: d.size * (0.72 + d.variant * 0.08 + Math.min(0.35, Math.abs(d.vy) * 0.08)),
               opacity: d.opacity,
               transform: `translate(-50%, -50%) rotate(${d.rot}deg)`,
+              background: `radial-gradient(circle at 35% 30%, ${d.color}ee 0%, ${d.color} 55%, ${d.color}99 100%)`,
+              boxShadow: `2px 3px 0 -1px ${d.color}88, -3px 1px 0 -1px ${d.color}66, 1px -2px 0 -1px ${d.color}55`,
             }}
           />
         ))}
@@ -304,41 +322,60 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
           style={{
             left: brushPos.x,
             top: brushPos.y,
-            transform: 'translate(-8px, -40px)',
+            transform: 'translate(-10px, -46px)',
           }}
           aria-hidden
         >
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* Wooden handle */}
             <path
-              d="M30.5 4.5c1.2-1.2 3.2-1.2 4.4 0l8.6 8.6c1.2 1.2 1.2 3.2 0 4.4l-3.2 3.2-12.9-12.9 3.1-3.3z"
-              fill="#c4a574"
-              stroke="#1a1917"
-              strokeWidth="1.2"
+              d="M34 6.5c1.4-1.4 3.7-1.4 5.1 0l10.4 10.4c1.4 1.4 1.4 3.7 0 5.1l-2.4 2.4L31.6 8.9 34 6.5z"
+              fill="#b8956c"
+              stroke="#2a2118"
+              strokeWidth="1.3"
             />
-            <path d="M28.2 8.2l11.6 11.6" stroke="#8b7355" strokeWidth="1" strokeLinecap="round" />
+            <path d="M33.2 9.2l10.8 10.8" stroke="#8a6b45" strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M36.5 8.5l1.2-1.2" stroke="#d4b896" strokeWidth="1" strokeLinecap="round" opacity="0.7" />
+            {/* Metal ferrule */}
             <path
-              d="M22.5 20.5l5 5-3.2 3.2-5-5 3.2-3.2z"
-              fill="#c0c4c8"
-              stroke="#1a1917"
-              strokeWidth="1.2"
+              d="M28.2 22.2l5.6 5.6-3.6 3.6-5.6-5.6 3.6-3.6z"
+              fill="#c5ccd4"
+              stroke="#2a2118"
+              strokeWidth="1.3"
             />
+            <path d="M27.2 25.4l3.2 3.2" stroke="#eef1f4" strokeWidth="1" strokeLinecap="round" />
+            <path d="M29.4 23.2l3.2 3.2" stroke="#9aa3ad" strokeWidth="0.9" strokeLinecap="round" />
+            {/* Bristle head — classic flat brush silhouette */}
             <path
-              d="M8 38.5c2.5-6 7-12.5 12.5-16.5l5 5c-4.2 5.3-10.2 10.2-16.2 13.2-.8.4-1.6-.5-1.3-1.7z"
-              fill="#e8e4dc"
-              stroke="#1a1917"
-              strokeWidth="1.2"
+              d="M12.5 42.5c3.2-5.8 8.2-12.2 13.8-16.2l5.2 5.2c-4.5 4.8-10.2 10.5-15.8 14.8-1 .7-2.4-.2-2.1-1.5 0 0-.4-1-.5-1.3-.3-.9-.5-1.2-.6-1z"
+              fill="#f3ebe0"
+              stroke="#2a2118"
+              strokeWidth="1.3"
             />
+            {/* Bristle strands */}
+            <path d="M16.2 39.5c2.4-3.8 5.6-7.8 9-10.8" stroke="#c4b8a8" strokeWidth="1" strokeLinecap="round" />
+            <path d="M14.4 41c2.6-4 6-8.2 9.6-11.2" stroke="#d8cfc2" strokeWidth="0.9" strokeLinecap="round" />
+            <path d="M18.2 37.8c2.2-3.4 5-7 8.2-9.6" stroke="#b5a898" strokeWidth="0.85" strokeLinecap="round" />
+            {/* Wet colorful paint on tip */}
             <path
-              d="M10.5 36c2-3.5 5-7.5 8.5-10.5"
-              stroke="#b8b0a4"
-              strokeWidth="1"
+              d="M11.2 43.6c2.4-.2 4.6-1.2 6.4-2.6"
+              stroke="#c41e3a"
+              strokeWidth="2.8"
               strokeLinecap="round"
             />
             <path
-              d="M7.2 39.8c1.8-.3 3.2-1 4.5-2"
-              stroke="#c45c3e"
-              strokeWidth="2.2"
+              d="M12.6 44.8c1.8-.15 3.4-.8 4.8-1.7"
+              stroke="#1d4ed8"
+              strokeWidth="2"
               strokeLinecap="round"
+              opacity="0.9"
+            />
+            <path
+              d="M10.8 42.4c1.5 0 2.8-.4 4-1"
+              stroke="#ca8a04"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              opacity="0.85"
             />
           </svg>
         </div>
