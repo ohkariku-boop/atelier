@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Palette } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -26,6 +26,13 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   const [index, setIndex] = useState(0);
   const [lifting, setLifting] = useState(false);
   const [ready, setReady] = useState(false);
+  const [brushPos, setBrushPos] = useState<{ x: number; y: number } | null>(null);
+  const [brushVisible, setBrushVisible] = useState(false);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    setBrushPos({ x: e.clientX, y: e.clientY });
+    setBrushVisible(true);
+  }, []);
 
   const reducedMotion = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -112,7 +119,67 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
       role="dialog"
       aria-label="Welcome to Atelier"
       aria-modal="true"
+      onPointerMove={onPointerMove}
+      onPointerLeave={() => setBrushVisible(false)}
+      onPointerEnter={() => setBrushVisible(true)}
     >
+      {/* Custom painter's brush cursor */}
+      {brushPos && (
+        <div
+          className={`atelier-foyer__brush pointer-events-none fixed z-[110] ${
+            brushVisible ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{
+            left: brushPos.x,
+            top: brushPos.y,
+            transform: 'translate(-8px, -40px)',
+          }}
+          aria-hidden
+        >
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* Handle */}
+            <path
+              d="M30.5 4.5c1.2-1.2 3.2-1.2 4.4 0l8.6 8.6c1.2 1.2 1.2 3.2 0 4.4l-3.2 3.2-12.9-12.9 3.1-3.3z"
+              fill="#c4a574"
+              stroke="#1a1917"
+              strokeWidth="1.2"
+            />
+            <path
+              d="M28.2 8.2l11.6 11.6"
+              stroke="#8b7355"
+              strokeWidth="1"
+              strokeLinecap="round"
+            />
+            {/* Ferrule */}
+            <path
+              d="M22.5 20.5l5 5-3.2 3.2-5-5 3.2-3.2z"
+              fill="#c0c4c8"
+              stroke="#1a1917"
+              strokeWidth="1.2"
+            />
+            {/* Bristles */}
+            <path
+              d="M8 38.5c2.5-6 7-12.5 12.5-16.5l5 5c-4.2 5.3-10.2 10.2-16.2 13.2-.8.4-1.6-.5-1.3-1.7z"
+              fill="#e8e4dc"
+              stroke="#1a1917"
+              strokeWidth="1.2"
+            />
+            <path
+              d="M10.5 36c2-3.5 5-7.5 8.5-10.5"
+              stroke="#b8b0a4"
+              strokeWidth="1"
+              strokeLinecap="round"
+            />
+            {/* Paint tip accent */}
+            <path
+              d="M7.2 39.8c1.8-.3 3.2-1 4.5-2"
+              stroke="#c45c3e"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+      )}
       <div className="absolute inset-0 bg-ink-950 overflow-hidden">
         {slides.length === 0 ? (
           <div className="absolute inset-0 bg-ink-900" />

@@ -152,3 +152,25 @@
   color: inherit;
   opacity: 0.7;
 }
+
+
+/* Foyer — hide system cursor, show paintbrush */
+.atelier-foyer {
+  cursor: none;
+}
+.atelier-foyer a,
+.atelier-foyer button {
+  cursor: none;
+}
+.atelier-foyer__brush {
+  transition: opacity 0.15s ease;
+  will-change: left, top;
+}
+@media (pointer: coarse) {
+  .atelier-foyer {
+    cursor: auto;
+  }
+  .atelier-foyer__brush {
+    display: none;
+  }
+}
