@@ -280,10 +280,10 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
         </div>
       </div>
 
-      {/* Hero */}
+      {/* Hero + Collections */}
       <div className="max-w-[1600px] mx-auto px-6 lg:px-10 pt-12 pb-8">
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8 lg:gap-12">
+          <div className="max-w-2xl">
             <p className="text-xs uppercase tracking-[0.25em] text-accent-500 font-semibold mb-3">
               The Gallery Floor
             </p>
@@ -291,11 +291,44 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
               <span>Curated live auctions.</span>
               <span className="text-ink-400">Made by human hands.</span>
             </h1>
+            <p className="text-sm text-ink-500 max-w-sm leading-relaxed mt-4 lg:hidden">
+              Browse physical artworks from verified artists worldwide. Paint, ceramic, charcoal,
+              wood — never pixels.
+            </p>
           </div>
-          <p className="text-sm text-ink-500 max-w-sm leading-relaxed">
-            Browse physical artworks from verified artists worldwide. Paint, ceramic, charcoal,
-            wood — never pixels.
-          </p>
+
+          {collections.length > 0 ? (
+            <div className="w-full lg:w-[min(100%,380px)] lg:flex-shrink-0">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-ink-400 font-semibold mb-3">
+                Collections
+              </p>
+              <div className="flex flex-col gap-3">
+                {collections.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => navigate(`collection/${c.slug}`)}
+                    className="card-surface p-5 text-left hover:border-ink-900 dark:hover:border-ink-400 transition-colors w-full"
+                  >
+                    <h3 className="font-serif text-lg font-semibold">{c.title}</h3>
+                    {c.description && (
+                      <p className="text-sm text-ink-500 mt-1 leading-relaxed line-clamp-2">
+                        {c.description}
+                      </p>
+                    )}
+                    <p className="text-[10px] uppercase tracking-widest text-accent-600 dark:text-accent-400 mt-3">
+                      View collection
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-ink-500 max-w-sm leading-relaxed hidden lg:block">
+              Browse physical artworks from verified artists worldwide. Paint, ceramic, charcoal,
+              wood — never pixels.
+            </p>
+          )}
         </div>
       </div>
 
@@ -436,16 +469,6 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
         </div>
       </div>
 
-      {/* Collections */}
-      {collections.length > 0 && (
-        <div className="max-w-[1600px] mx-auto px-6 lg:px-10 pt-8">
-          <p className="text-xs uppercase tracking-[0.25em] text-ink-400 font-semibold mb-4">Collections</p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {collections.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => navigate(`collection/${c.slug}`)}
                 className="card-surface p-5 text-left hover:border-ink-900 dark:hover:border-ink-400 transition-colors"
               >
                 <h3 className="font-serif text-lg font-semibold">{c.title}</h3>
