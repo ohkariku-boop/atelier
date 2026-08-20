@@ -5,7 +5,7 @@ import type { OrderWithDetails } from '@/types';
 import { formatCurrency, formatCurrencyPrecise, timeAgo, SHIPPING_RATES } from '@/lib/theme';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
-import { completeDummyPayment } from '@/lib/closeAuction';
+import { payForOrder } from '@/lib/closeAuction';
 
 interface OrderTrackingProps {
   navigate: (path: string) => void;
@@ -17,6 +17,15 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
   const [orders, setOrders] = useState<OrderWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('paid=1')) {
+      showToast('Payment received. Funds are held in escrow.', 'success');
+    } else if (hash.includes('cancelled=1')) {
+      showToast('Checkout cancelled — you can pay anytime from Orders.', 'info');
+    }
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -104,12 +113,13 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
   };
 
   const completePayment = async (orderId: string) => {
-    const { error } = await completeDummyPayment(orderId);
+    const { error, redirected } = await payForOrder(orderId);
+    if (redirected) return {};
     if (error) {
       showToast(error, 'error');
       return { error };
     }
-    showToast('Payment complete! A receipt has been emailed to you.', 'success');
+    showToast('Payment complete! Funds held in escrow.', 'success');
     setRefreshKey((k) => k + 1);
     return {};
   };
@@ -328,7 +338,7 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim, o
                 disabled={!cardValid || payingNow}
                 className="btn-accent w-full py-3 text-sm disabled:opacity-40"
               >
-                {payingNow ? 'Processing...' : `Pay ${formatCurrency(total)}`}
+                {payingNow ? 'Redirecting…' : `Pay ${formatCurrency(total)} with Stripe`}
               </button>
             </div>
           ) : (

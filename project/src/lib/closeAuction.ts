@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { startStripeCheckout } from '@/lib/stripe';
 
 /**
  * Calls close_expired_auction for a specific auction. Safe to call on any
@@ -45,6 +46,23 @@ export async function completeDummyPayment(orderId: string): Promise<{ error?: s
   sendReceiptEmail(orderId);
   notifySellerSale(orderId);
   return {};
+}
+
+/**
+ * Prefer Stripe Checkout. If Stripe secrets are not set, fall back to dummy
+ * payment so local/demo flows still work until keys are added.
+ */
+export async function payForOrder(orderId: string): Promise<{ error?: string; redirected?: boolean }> {
+  const result = await startStripeCheckout(orderId);
+  if (result.url) {
+    window.location.href = result.url;
+    return { redirected: true };
+  }
+  if (result.notConfigured) {
+    // Dev / pre-Stripe path
+    return completeDummyPayment(orderId);
+  }
+  return { error: result.error || 'Payment could not be started' };
 }
 
 /**

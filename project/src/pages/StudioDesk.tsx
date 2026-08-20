@@ -10,6 +10,7 @@ import { tryCloseAuction } from '@/lib/closeAuction';
 import { AuctionRow } from '@/components/studio/AuctionRow';
 import { CreateListingForm } from '@/components/studio/CreateListingForm';
 import { MiniBars } from '@/components/studio/MiniBars';
+import { startStripeConnectOnboarding } from '@/lib/stripe';
 
 interface StudioDeskProps {
   navigate: (path: string) => void;
@@ -260,6 +261,36 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
 
       {view === 'dashboard' ? (
         <>
+          {/* Stripe Connect */}
+          <div className="card-surface p-5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-ink-400 font-semibold mb-1">Payouts</p>
+              <p className="text-sm text-ink-600 dark:text-ink-300">
+                Connect Stripe to receive funds when buyers pay and escrow releases.
+                Without Connect, payments can still be collected by the platform.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn-primary text-sm whitespace-nowrap"
+              onClick={async () => {
+                const res = await startStripeConnectOnboarding();
+                if (res.url) {
+                  window.location.href = res.url;
+                  return;
+                }
+                showToast(
+                  res.notConfigured
+                    ? 'Stripe keys not set yet. Add STRIPE_SECRET_KEY in Supabase secrets.'
+                    : res.error || 'Could not start Connect onboarding',
+                  res.notConfigured ? 'info' : 'error'
+                );
+              }}
+            >
+              Connect Stripe
+            </button>
+          </div>
+
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="card-surface p-5">

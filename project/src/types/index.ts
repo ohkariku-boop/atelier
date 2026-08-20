@@ -118,6 +118,9 @@ export interface Profile {
   display_name: string;
   role: UserRole;
   artist_id: string | null;
+  stripe_customer_id?: string | null;
+  stripe_account_id?: string | null;
+  stripe_onboarding_complete?: boolean;
   created_at: string;
 }
 
