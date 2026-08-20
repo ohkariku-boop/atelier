@@ -17,10 +17,18 @@ import { AdminReview } from '@/pages/AdminReview';
 import { MessagesPage } from '@/pages/MessagesPage';
 import { CollectionPage } from '@/pages/CollectionPage';
 import { Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { EntryFoyer, shouldShowFoyer } from '@/components/EntryFoyer';
 
 function AppContent() {
   const { route, navigate } = useRouter();
   const { session, loading } = useAuth();
+  const [showFoyer, setShowFoyer] = useState(() => shouldShowFoyer());
+
+  // Deep links skip foyer (auction/artist/admin etc.)
+  useEffect(() => {
+    if (route.name !== 'gallery') setShowFoyer(false);
+  }, [route.name]);
 
   if (loading) {
     return (
@@ -28,6 +36,10 @@ function AppContent() {
         <Loader2 className="w-8 h-8 animate-spin text-ink-400" />
       </div>
     );
+  }
+
+  if (showFoyer && route.name === 'gallery') {
+    return <EntryFoyer onComplete={() => setShowFoyer(false)} />;
   }
 
   const isProtectedRoute = route.name === 'studio' || route.name === 'orders' || route.name === 'admin' || route.name === 'messages';

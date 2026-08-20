@@ -86,3 +86,37 @@
     min-height: 44px;
   }
 }
+
+/* Entry foyer — ceremonial session opener */
+.atelier-foyer__curtain {
+  background: #1a1917;
+  opacity: 0.35;
+  mix-blend-mode: multiply;
+  transition: transform 0.9s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.9s ease;
+  transform: translateY(0);
+}
+.atelier-foyer.is-lifting .atelier-foyer__curtain {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+.atelier-foyer.is-lifting {
+  pointer-events: none;
+}
+.atelier-foyer.is-lifting .atelier-foyer__slide {
+  transition: opacity 0.6s ease, transform 0.9s ease;
+}
+@keyframes atelier-ken {
+  from { transform: scale(1.05); }
+  to { transform: scale(1.12); }
+}
+.atelier-foyer__ken {
+  animation: atelier-ken 8s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .atelier-foyer__ken {
+    animation: none;
+  }
+  .atelier-foyer__curtain {
+    transition: opacity 0.25s ease;
+  }
+}
