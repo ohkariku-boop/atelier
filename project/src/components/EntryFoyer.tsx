@@ -28,16 +28,73 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   const [ready, setReady] = useState(false);
   const [brushPos, setBrushPos] = useState<{ x: number; y: number } | null>(null);
   const [brushVisible, setBrushVisible] = useState(false);
-
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    setBrushPos({ x: e.clientX, y: e.clientY });
-    setBrushVisible(true);
-  }, []);
+  const [splatters, setSplatters] = useState<
+    { id: number; x: number; y: number; size: number; rot: number; opacity: number; variant: number }[]
+  >([]);
+  const lastSplatRef = useState({ t: 0 })[0];
 
   const reducedMotion = useMemo(() => {
     if (typeof window === 'undefined') return false;
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }, []);
+
+  const spawnSplatters = useCallback(
+    (x: number, y: number, burst: number) => {
+      if (reducedMotion) return;
+      const batch = Array.from({ length: burst }, (_, i) => {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = burst > 2 ? 8 + Math.random() * 36 : Math.random() * 14;
+        return {
+          id: Date.now() + Math.random() + i,
+          x: x + Math.cos(angle) * dist,
+          y: y + Math.sin(angle) * dist,
+          size: 6 + Math.random() * (burst > 2 ? 28 : 16),
+          rot: Math.random() * 360,
+          opacity: 0.35 + Math.random() * 0.45,
+          variant: Math.floor(Math.random() * 3),
+        };
+      });
+      setSplatters((prev) => [...prev.slice(-40), ...batch]);
+    },
+    [reducedMotion]
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      setBrushPos({ x: e.clientX, y: e.clientY });
+      setBrushVisible(true);
+      if (reducedMotion) return;
+      const now = Date.now();
+      // Tip of brush is offset (~8, 40) from cursor
+      const tipX = e.clientX + 4;
+      const tipY = e.clientY - 6;
+      if (now - lastSplatRef.t > 70 && (e.movementX !== 0 || e.movementY !== 0)) {
+        const speed = Math.min(24, Math.hypot(e.movementX, e.movementY));
+        if (speed > 3) {
+          lastSplatRef.t = now;
+          spawnSplatters(tipX, tipY, speed > 12 ? 2 : 1);
+        }
+      }
+    },
+    [reducedMotion, lastSplatRef, spawnSplatters]
+  );
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+      spawnSplatters(e.clientX, e.clientY, 7);
+    },
+    [spawnSplatters]
+  );
+
+  // Fade out old splatters
+  useEffect(() => {
+    if (splatters.length === 0) return;
+    const t = window.setTimeout(() => {
+      setSplatters((prev) => prev.slice(Math.max(0, prev.length - 24)));
+    }, 2800);
+    return () => window.clearTimeout(t);
+  }, [splatters.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,9 +177,28 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
       aria-label="Welcome to Atelier"
       aria-modal="true"
       onPointerMove={onPointerMove}
+      onPointerDown={onPointerDown}
       onPointerLeave={() => setBrushVisible(false)}
       onPointerEnter={() => setBrushVisible(true)}
     >
+
+      {/* Ink splatters */}
+      <div className="atelier-foyer__ink-layer pointer-events-none fixed inset-0 z-[105]" aria-hidden>
+        {splatters.map((s) => (
+          <span
+            key={s.id}
+            className={`atelier-foyer__splat atelier-foyer__splat--${s.variant}`}
+            style={{
+              left: s.x,
+              top: s.y,
+              width: s.size,
+              height: s.size * (0.75 + (s.variant * 0.1)),
+              opacity: s.opacity,
+              transform: `translate(-50%, -50%) rotate(${s.rot}deg)`,
+            }}
+          />
+        ))}
+      </div>
       {/* Custom painter's brush cursor */}
       {brushPos && (
         <div
