@@ -469,21 +469,6 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
         </div>
       </div>
 
-                className="card-surface p-5 text-left hover:border-ink-900 dark:hover:border-ink-400 transition-colors"
-              >
-                <h3 className="font-serif text-lg font-semibold">{c.title}</h3>
-                {c.description && (
-                  <p className="text-sm text-ink-500 mt-1 leading-relaxed">{c.description}</p>
-                )}
-                <p className="text-[10px] uppercase tracking-widest text-accent-600 dark:text-accent-400 mt-3">
-                  View collection
-                </p>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Grid */}
       <div className="max-w-[1600px] mx-auto px-6 lg:px-10 py-8">
         {loading ? (
