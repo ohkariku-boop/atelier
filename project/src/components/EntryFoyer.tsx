@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Palette } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-const SESSION_KEY = 'atelier_foyer_seen';
 const SLIDE_MS = 2800;
 
 export type FoyerSlide = {
@@ -97,11 +96,6 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
 
   const beginLift = () => {
     if (lifting) return;
-    try {
-      sessionStorage.setItem(SESSION_KEY, '1');
-    } catch {
-      /* ignore */
-    }
     if (reducedMotion) {
       onComplete();
       return;
@@ -206,11 +200,7 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   );
 }
 
+/** Always show foyer on a full page load of the gallery (every refresh). */
 export function shouldShowFoyer(): boolean {
-  try {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem(SESSION_KEY) !== '1';
-  } catch {
-    return false;
-  }
+  return typeof window !== 'undefined';
 }
