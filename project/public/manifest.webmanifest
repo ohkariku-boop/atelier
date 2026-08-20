@@ -1,5 +1,5 @@
 {
-  "name": "Atelier — Human Art Auctions",
+  "name": "Atelier \u2014 Human Art Auctions",
   "short_name": "Atelier",
   "description": "Live auctions of studio-verified, 100% human-made physical art.",
   "start_url": "./",
@@ -9,7 +9,7 @@
   "lang": "en",
   "icons": [
     {
-      "src": "./vite.svg",
+      "src": "./favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
