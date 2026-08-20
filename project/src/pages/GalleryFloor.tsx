@@ -15,7 +15,7 @@ interface GalleryFloorProps {
 type SortOption = 'ending_soon' | 'price_low' | 'price_high' | 'newest' | 'most_bids';
 type StatusFilter = 'all_active' | 'live' | 'flash' | 'ending_soon';
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 15;
 
 export function GalleryFloor({ navigate }: GalleryFloorProps) {
   const { session } = useAuth();
@@ -472,7 +472,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
       {/* Grid */}
       <div className="max-w-[1600px] mx-auto px-6 lg:px-10 py-8">
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="card-surface">
                 <div className="aspect-[4/5] bg-ink-100 dark:bg-ink-800 animate-pulse" />
@@ -506,7 +506,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
               )}
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
               {pageItems.map((auction) => (
                 <ArtworkCard
                   key={auction.id}
