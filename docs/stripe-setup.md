@@ -19,21 +19,29 @@ Code is ready. You only need to add Stripe account credentials.
 
 Run the SQL in `project/supabase/migrations/20260820010000_stripe_connect_fields.sql`.
 
-## 3. Supabase secrets + deploy functions
+## 3. Secrets (Supabase Dashboard — no CLI)
 
-```bash
-npx supabase login
-npx supabase link --project-ref ogjxysfnidfclgjedjzs
+**Project Settings → Edge Functions → Secrets** (or Project Settings → Secrets):
 
-npx supabase secrets set STRIPE_SECRET_KEY=sk_test_xxxx
-npx supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_xxxx
-npx supabase secrets set SITE_URL=https://ohkariku-boop.github.io/atelier
-npx supabase secrets set PLATFORM_FEE_PERCENT=10
+| Name | Value |
+|------|--------|
+| `STRIPE_SECRET_KEY` | `sk_test_...` from Stripe |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_...` from Stripe webhook |
+| `SITE_URL` | `https://ohkariku-boop.github.io/atelier` |
+| `PLATFORM_FEE_PERCENT` | `10` (optional) |
 
-npx supabase functions deploy stripe-create-checkout
-npx supabase functions deploy stripe-webhook
-npx supabase functions deploy stripe-connect-onboard
-```
+## 3b. Deploy functions via GitHub Action (no local CLI)
+
+1. Create a Supabase access token:  
+   https://supabase.com/dashboard/account/tokens  
+2. GitHub repo → **Settings → Secrets and variables → Actions**:
+   - `SUPABASE_ACCESS_TOKEN` = that token  
+   - `SUPABASE_PROJECT_REF` = `ogjxysfnidfclgjedjzs` (optional if default used)
+3. **Actions → Deploy Supabase Edge Functions → Run workflow**
+
+Or push a change under `project/supabase/functions/` on `main` (auto-runs).
+
+Webhook function is deployed with `--no-verify-jwt` so Stripe can POST without a user JWT.
 
 ## 4. App behavior
 
