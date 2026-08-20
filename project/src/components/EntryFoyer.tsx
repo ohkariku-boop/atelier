@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Palette } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const SLIDE_MS = 2800;
+
+/** Viscosity model: higher = thicker ink (more drag, slower spread). */
+const VISCOSITY = 0.82;
+const FRICTION = 0.88 + VISCOSITY * 0.08; // ~0.94
+const GRAVITY = 0.12 * (1.15 - VISCOSITY * 0.3);
+const SPREAD = 0.012 * (1.1 - VISCOSITY * 0.4);
+const MAX_PARTICLES = 55;
+const MIN_MOVE_INTERVAL = 55;
 
 export type FoyerSlide = {
   id: string;
@@ -13,13 +21,29 @@ export type FoyerSlide = {
   status?: string;
 };
 
+type InkDrop = {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  targetSize: number;
+  rot: number;
+  spin: number;
+  opacity: number;
+  life: number;
+  maxLife: number;
+  variant: number;
+};
+
 interface EntryFoyerProps {
   onComplete: () => void;
 }
 
 /**
  * Session foyer: cycles available art until the visitor chooses
- * "Browse full collection". No auto-dismiss.
+ * "Browse full collection". Paintbrush + viscous ink physics.
  */
 export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   const [slides, setSlides] = useState<FoyerSlide[]>([]);
@@ -28,33 +52,113 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   const [ready, setReady] = useState(false);
   const [brushPos, setBrushPos] = useState<{ x: number; y: number } | null>(null);
   const [brushVisible, setBrushVisible] = useState(false);
-  const [splatters, setSplatters] = useState<
-    { id: number; x: number; y: number; size: number; rot: number; opacity: number; variant: number }[]
-  >([]);
-  const lastSplatRef = useState({ t: 0 })[0];
+  const [drops, setDrops] = useState<InkDrop[]>([]);
+
+  const dropsRef = useRef<InkDrop[]>([]);
+  const rafRef = useRef<number>(0);
+  const lastSpawnRef = useRef(0);
+  const idRef = useRef(0);
 
   const reducedMotion = useMemo(() => {
     if (typeof window === 'undefined') return false;
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }, []);
 
-  const spawnSplatters = useCallback(
-    (x: number, y: number, burst: number) => {
+  // Physics loop
+  useEffect(() => {
+    if (reducedMotion) return;
+
+    const tick = () => {
+      const prev = dropsRef.current;
+      if (prev.length === 0) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      const next: InkDrop[] = [];
+      for (const d of prev) {
+        // Viscous drag on velocity
+        let vx = d.vx * FRICTION;
+        let vy = d.vy * FRICTION + GRAVITY;
+
+        // Near-stop threshold — ink “sets”
+        if (Math.hypot(vx, vy) < 0.04) {
+          vx = 0;
+          vy = 0;
+        }
+
+        const x = d.x + vx;
+        const y = d.y + vy;
+
+        // Slow organic spread (thick ink blooms slowly)
+        const size =
+          d.size + (d.targetSize - d.size) * SPREAD * 8 + (vy > 0.2 ? 0.02 : 0);
+
+        const rot = d.rot + d.spin;
+        const spin = d.spin * 0.92;
+        const life = d.life + 1;
+        const fadeStart = d.maxLife * 0.55;
+        const opacity =
+          life > fadeStart
+            ? d.opacity * Math.max(0, 1 - (life - fadeStart) / (d.maxLife - fadeStart))
+            : d.opacity;
+
+        if (life < d.maxLife && opacity > 0.02) {
+          next.push({
+            ...d,
+            x,
+            y,
+            vx,
+            vy,
+            size: Math.min(size, d.targetSize * 1.05),
+            rot,
+            spin,
+            life,
+            opacity,
+          });
+        }
+      }
+
+      dropsRef.current = next;
+      setDrops(next);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [reducedMotion]);
+
+  const spawnDrops = useCallback(
+    (x: number, y: number, opts: { burst: number; speedX?: number; speedY?: number }) => {
       if (reducedMotion) return;
-      const batch = Array.from({ length: burst }, (_, i) => {
+      const { burst, speedX = 0, speedY = 0 } = opts;
+      const batch: InkDrop[] = [];
+
+      for (let i = 0; i < burst; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const dist = burst > 2 ? 8 + Math.random() * 36 : Math.random() * 14;
-        return {
-          id: Date.now() + Math.random() + i,
-          x: x + Math.cos(angle) * dist,
-          y: y + Math.sin(angle) * dist,
-          size: 6 + Math.random() * (burst > 2 ? 28 : 16),
+        // Thick ink: low initial velocity, tight spray cone on strokes
+        const eject = (0.4 + Math.random() * 1.8) * (burst > 3 ? 1.6 : 1);
+        const inherit = 0.25;
+        batch.push({
+          id: ++idRef.current,
+          x: x + (Math.random() - 0.5) * 6,
+          y: y + (Math.random() - 0.5) * 6,
+          vx: Math.cos(angle) * eject + speedX * inherit,
+          vy: Math.sin(angle) * eject * 0.7 + speedY * inherit + Math.random() * 0.3,
+          size: 2 + Math.random() * 4,
+          targetSize: 10 + Math.random() * (burst > 3 ? 34 : 18),
           rot: Math.random() * 360,
-          opacity: 0.35 + Math.random() * 0.45,
+          spin: (Math.random() - 0.5) * 2,
+          opacity: 0.4 + Math.random() * 0.5,
+          life: 0,
+          maxLife: 90 + Math.floor(Math.random() * 50),
           variant: Math.floor(Math.random() * 3),
-        };
-      });
-      setSplatters((prev) => [...prev.slice(-40), ...batch]);
+        });
+      }
+
+      const merged = [...dropsRef.current, ...batch].slice(-MAX_PARTICLES);
+      dropsRef.current = merged;
+      setDrops(merged);
     },
     [reducedMotion]
   );
@@ -64,37 +168,31 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
       setBrushPos({ x: e.clientX, y: e.clientY });
       setBrushVisible(true);
       if (reducedMotion) return;
-      const now = Date.now();
-      // Tip of brush is offset (~8, 40) from cursor
+
+      const now = performance.now();
       const tipX = e.clientX + 4;
-      const tipY = e.clientY - 6;
-      if (now - lastSplatRef.t > 70 && (e.movementX !== 0 || e.movementY !== 0)) {
-        const speed = Math.min(24, Math.hypot(e.movementX, e.movementY));
-        if (speed > 3) {
-          lastSplatRef.t = now;
-          spawnSplatters(tipX, tipY, speed > 12 ? 2 : 1);
-        }
+      const tipY = e.clientY - 4;
+      const speed = Math.hypot(e.movementX, e.movementY);
+
+      if (speed > 2.5 && now - lastSpawnRef.current > MIN_MOVE_INTERVAL) {
+        lastSpawnRef.current = now;
+        spawnDrops(tipX, tipY, {
+          burst: speed > 14 ? 3 : 1,
+          speedX: e.movementX * 0.15,
+          speedY: e.movementY * 0.15,
+        });
       }
     },
-    [reducedMotion, lastSplatRef, spawnSplatters]
+    [reducedMotion, spawnDrops]
   );
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if ((e.target as HTMLElement).closest('button')) return;
-      spawnSplatters(e.clientX, e.clientY, 7);
+      spawnDrops(e.clientX, e.clientY, { burst: 10 });
     },
-    [spawnSplatters]
+    [spawnDrops]
   );
-
-  // Fade out old splatters
-  useEffect(() => {
-    if (splatters.length === 0) return;
-    const t = window.setTimeout(() => {
-      setSplatters((prev) => prev.slice(Math.max(0, prev.length - 24)));
-    }, 2800);
-    return () => window.clearTimeout(t);
-  }, [splatters.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -181,25 +279,23 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
       onPointerLeave={() => setBrushVisible(false)}
       onPointerEnter={() => setBrushVisible(true)}
     >
-
-      {/* Ink splatters */}
       <div className="atelier-foyer__ink-layer pointer-events-none fixed inset-0 z-[105]" aria-hidden>
-        {splatters.map((s) => (
+        {drops.map((d) => (
           <span
-            key={s.id}
-            className={`atelier-foyer__splat atelier-foyer__splat--${s.variant}`}
+            key={d.id}
+            className={`atelier-foyer__splat atelier-foyer__splat--${d.variant} atelier-foyer__splat--viscous`}
             style={{
-              left: s.x,
-              top: s.y,
-              width: s.size,
-              height: s.size * (0.75 + (s.variant * 0.1)),
-              opacity: s.opacity,
-              transform: `translate(-50%, -50%) rotate(${s.rot}deg)`,
+              left: d.x,
+              top: d.y,
+              width: d.size,
+              height: d.size * (0.72 + d.variant * 0.08 + Math.min(0.35, Math.abs(d.vy) * 0.08)),
+              opacity: d.opacity,
+              transform: `translate(-50%, -50%) rotate(${d.rot}deg)`,
             }}
           />
         ))}
       </div>
-      {/* Custom painter's brush cursor */}
+
       {brushPos && (
         <div
           className={`atelier-foyer__brush pointer-events-none fixed z-[110] ${
@@ -213,27 +309,19 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
           aria-hidden
         >
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* Handle */}
             <path
               d="M30.5 4.5c1.2-1.2 3.2-1.2 4.4 0l8.6 8.6c1.2 1.2 1.2 3.2 0 4.4l-3.2 3.2-12.9-12.9 3.1-3.3z"
               fill="#c4a574"
               stroke="#1a1917"
               strokeWidth="1.2"
             />
-            <path
-              d="M28.2 8.2l11.6 11.6"
-              stroke="#8b7355"
-              strokeWidth="1"
-              strokeLinecap="round"
-            />
-            {/* Ferrule */}
+            <path d="M28.2 8.2l11.6 11.6" stroke="#8b7355" strokeWidth="1" strokeLinecap="round" />
             <path
               d="M22.5 20.5l5 5-3.2 3.2-5-5 3.2-3.2z"
               fill="#c0c4c8"
               stroke="#1a1917"
               strokeWidth="1.2"
             />
-            {/* Bristles */}
             <path
               d="M8 38.5c2.5-6 7-12.5 12.5-16.5l5 5c-4.2 5.3-10.2 10.2-16.2 13.2-.8.4-1.6-.5-1.3-1.7z"
               fill="#e8e4dc"
@@ -246,7 +334,6 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
               strokeWidth="1"
               strokeLinecap="round"
             />
-            {/* Paint tip accent */}
             <path
               d="M7.2 39.8c1.8-.3 3.2-1 4.5-2"
               stroke="#c45c3e"
@@ -256,6 +343,7 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
           </svg>
         </div>
       )}
+
       <div className="absolute inset-0 bg-ink-950 overflow-hidden">
         {slides.length === 0 ? (
           <div className="absolute inset-0 bg-ink-900" />
@@ -316,9 +404,7 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
             {slides.map((s, i) => (
               <span
                 key={s.id}
-                className={`h-0.5 w-6 transition-colors ${
-                  i === index ? 'bg-ink-50' : 'bg-ink-50/25'
-                }`}
+                className={`h-0.5 w-6 transition-colors ${i === index ? 'bg-ink-50' : 'bg-ink-50/25'}`}
               />
             ))}
           </div>

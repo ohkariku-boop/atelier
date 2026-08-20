@@ -184,12 +184,16 @@
   position: absolute;
   border-radius: 50% 40% 55% 45%;
   background: radial-gradient(circle at 35% 35%, #2a2826 0%, #1a1917 55%, #0c0b0a 100%);
-  animation: atelier-splat-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  filter: blur(0.2px);
+  filter: blur(0.3px);
+  will-change: left, top, width, height, opacity;
   box-shadow:
     2px 3px 0 -1px rgba(26, 25, 23, 0.5),
     -3px 1px 0 -1px rgba(26, 25, 23, 0.35),
     1px -2px 0 -1px rgba(26, 25, 23, 0.3);
+}
+.atelier-foyer__splat--viscous {
+  /* elongated wet edge — reads as thick ink */
+  border-radius: 48% 42% 58% 45%;
 }
 .atelier-foyer__splat--1 {
   border-radius: 40% 60% 50% 45%;
