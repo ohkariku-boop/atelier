@@ -155,4 +155,3 @@ Deno.serve(async (req) => {
   }
 });
 
-# deploy trigger 2026-08-20T06:04:27Z
