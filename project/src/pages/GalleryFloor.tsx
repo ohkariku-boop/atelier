@@ -3,7 +3,7 @@ import { ShieldCheck, SlidersHorizontal, Search, ChevronLeft, ChevronRight } fro
 import { supabase } from '@/lib/supabase';
 import type { AuctionWithDetails } from '@/types';
 import { ArtworkCard } from '@/components/ArtworkCard';
-import { MEDIUMS } from '@/lib/theme';
+import { MEDIUMS, formatCurrency } from '@/lib/theme';
 import { tryCloseAuction } from '@/lib/closeAuction';
 import { setPageMeta } from '@/lib/pageMeta';
 import { useAuth } from '@/context/AuthContext';
@@ -230,9 +230,24 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
     return result;
   }, [auctions, selectedMediums, sortOption, statusFilter, verifiedOnly, searchQuery, showFollowingOnly, followedArtistIds, ftsIds, showFeaturedOnly]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  // Opening lot: featured live/flash first, else most bids, else ending soon
+  const openingLot = (() => {
+    if (filtered.length === 0) return null;
+    const featured = filtered.find(
+      (a) => (a.artwork as { is_featured?: boolean }).is_featured && (a.status === 'live' || a.status === 'flash')
+    );
+    if (featured) return featured;
+    const byBids = [...filtered].sort((a, b) => b.bid_count - a.bid_count);
+    if (byBids[0]?.bid_count > 0) return byBids[0];
+    return filtered[0];
+  })();
+
+  const gridSource = openingLot
+    ? filtered.filter((a) => a.id !== openingLot.id)
+    : filtered;
+  const gridPages = Math.max(1, Math.ceil(gridSource.length / PAGE_SIZE));
+  const safePage = Math.min(page, gridPages);
+  const pageItems = gridSource.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const hasActiveFilters =
     selectedMediums.size > 0 ||
@@ -272,9 +287,8 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
             <p className="text-xs uppercase tracking-[0.25em] text-accent-500 font-semibold mb-3">
               The Gallery Floor
             </p>
-            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-semibold leading-[1.05] tracking-tight">
-              Curated live auctions.
-              <br />
+            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-semibold leading-[1.05] tracking-tight atelier-title-reveal">
+              <span>Curated live auctions.</span>
               <span className="text-ink-400">Made by human hands.</span>
             </h1>
           </div>
@@ -476,10 +490,10 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
           <>
             <p className="text-xs text-ink-400 mb-6 uppercase tracking-widest">
               {filtered.length} {filtered.length === 1 ? 'piece' : 'pieces'} on the floor
-              {totalPages > 1 && (
+              {gridPages > 1 && (
                 <span className="normal-case tracking-normal text-ink-500">
                   {' '}
-                  · page {safePage} of {totalPages}
+                  · page {safePage} of {gridPages}
                 </span>
               )}
             </p>
@@ -496,7 +510,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
+            {gridPages > 1 && (
               <div className="flex items-center justify-center gap-3 mt-12">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -507,11 +521,11 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <span className="text-sm text-ink-500 font-mono">
-                  {safePage} / {totalPages}
+                  {safePage} / {gridPages}
                 </span>
                 <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={safePage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(gridPages, p + 1))}
+                  disabled={safePage >= gridPages}
                   className="p-2 border border-ink-200 dark:border-ink-700 disabled:opacity-30 hover:border-ink-400 transition-colors"
                   aria-label="Next page"
                 >

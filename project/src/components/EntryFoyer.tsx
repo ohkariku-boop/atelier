@@ -3,15 +3,14 @@ import { Palette } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const SESSION_KEY = 'atelier_foyer_seen';
-const MIN_MS = 2800;
-const MAX_MS = 5200;
-const SLIDE_MS = 1600;
+const SLIDE_MS = 2800;
 
 export type FoyerSlide = {
   id: string;
   title: string;
   image_url: string;
   artist_name?: string;
+  medium?: string;
   status?: string;
 };
 
@@ -20,15 +19,14 @@ interface EntryFoyerProps {
 }
 
 /**
- * Once-per-session ceremonial entry: crossfade live/featured works,
- * then curtain lifts into the app. Skippable; respects reduced motion.
+ * Session foyer: cycles available art until the visitor chooses
+ * "Browse full collection". No auto-dismiss.
  */
 export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   const [slides, setSlides] = useState<FoyerSlide[]>([]);
   const [index, setIndex] = useState(0);
   const [lifting, setLifting] = useState(false);
   const [ready, setReady] = useState(false);
-  const [startedAt] = useState(() => Date.now());
 
   const reducedMotion = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -38,46 +36,49 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Prefer live floor, then featured verified works
       const { data: auctions } = await supabase
         .from('auctions')
-        .select('id, status, artwork:artworks(id, title, image_url, is_featured, artist:artists(name))')
-        .in('status', ['live', 'flash'])
+        .select(
+          'id, status, artwork:artworks(id, title, image_url, medium, is_featured, artist:artists(name))'
+        )
+        .in('status', ['live', 'flash', 'upcoming'])
         .order('end_time', { ascending: true })
-        .limit(8);
+        .limit(12);
 
-      let next: FoyerSlide[] = ((auctions || []) as any[]).map((a) => ({
-        id: a.artwork?.id || a.id,
-        title: a.artwork?.title || 'Untitled',
-        image_url: a.artwork?.image_url || '',
-        artist_name: a.artwork?.artist?.name,
-        status: a.status,
-      })).filter((s) => s.image_url);
+      let next: FoyerSlide[] = ((auctions || []) as any[])
+        .map((a) => ({
+          id: a.artwork?.id || a.id,
+          title: a.artwork?.title || 'Untitled',
+          image_url: a.artwork?.image_url || '',
+          artist_name: a.artwork?.artist?.name,
+          medium: a.artwork?.medium,
+          status: a.status,
+        }))
+        .filter((s) => s.image_url);
 
       if (next.length < 3) {
         const { data: artworks } = await supabase
           .from('artworks')
-          .select('id, title, image_url, is_featured, artist:artists(name)')
+          .select('id, title, image_url, medium, is_featured, artist:artists(name)')
           .eq('studio_verified', true)
           .order('is_featured', { ascending: false })
-          .limit(8);
-        const extra: FoyerSlide[] = ((artworks || []) as any[]).map((aw) => ({
-          id: aw.id,
-          title: aw.title,
-          image_url: aw.image_url,
-          artist_name: aw.artist?.name,
-        }));
+          .limit(12);
         const seen = new Set(next.map((s) => s.id));
-        for (const s of extra) {
-          if (!seen.has(s.id)) {
-            next.push(s);
-            seen.add(s.id);
-          }
+        for (const aw of (artworks || []) as any[]) {
+          if (seen.has(aw.id)) continue;
+          next.push({
+            id: aw.id,
+            title: aw.title,
+            image_url: aw.image_url,
+            artist_name: aw.artist?.name,
+            medium: aw.medium,
+          });
+          seen.add(aw.id);
         }
       }
 
       if (!cancelled) {
-        setSlides(next.slice(0, 8));
+        setSlides(next.slice(0, 12));
         setReady(true);
       }
     })();
@@ -86,7 +87,6 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
     };
   }, []);
 
-  // Advance slides
   useEffect(() => {
     if (!ready || slides.length < 2 || reducedMotion || lifting) return;
     const t = window.setInterval(() => {
@@ -94,22 +94,6 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
     }, SLIDE_MS);
     return () => window.clearInterval(t);
   }, [ready, slides.length, reducedMotion, lifting]);
-
-  // Auto-dismiss after min time once ready, hard cap MAX
-  useEffect(() => {
-    if (!ready) return;
-    const elapsed = Date.now() - startedAt;
-    const wait = reducedMotion
-      ? Math.max(400, MIN_MS / 3 - elapsed)
-      : Math.max(0, MIN_MS - elapsed);
-    const auto = window.setTimeout(() => beginLift(), wait);
-    const hard = window.setTimeout(() => beginLift(), MAX_MS);
-    return () => {
-      window.clearTimeout(auto);
-      window.clearTimeout(hard);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, reducedMotion]);
 
   const beginLift = () => {
     if (lifting) return;
@@ -135,68 +119,88 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
       aria-label="Welcome to Atelier"
       aria-modal="true"
     >
-      {/* Artwork stage */}
       <div className="absolute inset-0 bg-ink-950 overflow-hidden">
         {slides.length === 0 ? (
           <div className="absolute inset-0 bg-ink-900" />
         ) : (
           slides.map((s, i) => (
             <div
-              key={s.id + i}
-              className={`atelier-foyer__slide absolute inset-0 transition-opacity duration-700 ease-out ${
+              key={s.id + String(i)}
+              className={`atelier-foyer__slide absolute inset-0 transition-opacity duration-1000 ease-out ${
                 i === index ? 'opacity-100' : 'opacity-0'
               }`}
             >
               <img
                 src={s.image_url}
                 alt=""
-                className={`w-full h-full object-cover ${i === index && !reducedMotion ? 'atelier-foyer__ken' : ''}`}
+                className={`w-full h-full object-cover ${
+                  i === index && !reducedMotion ? 'atelier-foyer__ken' : ''
+                }`}
                 draggable={false}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-ink-950/30 to-ink-950/40" />
+              <div className="absolute inset-0 bg-gradient-to-t from-ink-950/95 via-ink-950/35 to-ink-950/45" />
             </div>
           ))
         )}
       </div>
 
-      {/* Curtain panel (lifts upward) */}
       <div className="atelier-foyer__curtain absolute inset-0 pointer-events-none" aria-hidden />
 
-      {/* Brand + caption */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center">
         <div className="w-14 h-14 bg-ink-50 flex items-center justify-center mb-5 shadow-lg">
           <Palette className="w-7 h-7 text-ink-900" />
         </div>
-        <p className="font-serif text-3xl sm:text-4xl text-ink-50 tracking-tight">Atelier</p>
-        <p className="mt-2 text-[10px] uppercase tracking-[0.28em] text-ink-300">
+        <p className="font-serif text-3xl sm:text-5xl text-ink-50 tracking-tight">Atelier</p>
+        <p className="mt-3 text-[10px] uppercase tracking-[0.28em] text-ink-300">
           Human-made · Studio-verified · Live
         </p>
+
         {current && (
-          <div className="mt-10 max-w-md">
-            <p className="font-serif text-lg sm:text-xl text-ink-50/95">{current.title}</p>
-            {current.artist_name && (
-              <p className="text-xs text-ink-400 mt-1">{current.artist_name}</p>
-            )}
+          <div className="mt-12 max-w-lg">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-ink-500 mb-3">Now showing</p>
+            <p className="font-serif text-xl sm:text-2xl text-ink-50/95 leading-snug">{current.title}</p>
+            <p className="text-sm text-ink-400 mt-2">
+              {[current.artist_name, current.medium].filter(Boolean).join(' · ')}
+            </p>
             {current.status && (
-              <p className="text-[10px] uppercase tracking-widest text-accent-400 mt-2">
-                {current.status === 'flash' ? 'Flash sale' : 'On the floor'}
+              <p className="text-[10px] uppercase tracking-widest text-accent-400 mt-3">
+                {current.status === 'flash'
+                  ? 'Flash sale'
+                  : current.status === 'upcoming'
+                    ? 'Upcoming'
+                    : 'On the floor'}
               </p>
             )}
           </div>
         )}
+
+        {slides.length > 1 && (
+          <div className="flex gap-1.5 mt-8" aria-hidden>
+            {slides.map((s, i) => (
+              <span
+                key={s.id}
+                className={`h-0.5 w-6 transition-colors ${
+                  i === index ? 'bg-ink-50' : 'bg-ink-50/25'
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="relative z-10 pb-10 flex flex-col items-center gap-3">
+      <div className="relative z-10 pb-12 flex flex-col items-center gap-3">
         {!ready && (
-          <p className="text-[10px] uppercase tracking-widest text-ink-500">Opening the floor…</p>
+          <p className="text-[10px] uppercase tracking-widest text-ink-500">Loading the collection…</p>
         )}
         <button
           type="button"
           onClick={beginLift}
-          className="text-xs uppercase tracking-[0.2em] text-ink-200 border border-ink-50/30 px-5 py-2.5 hover:bg-ink-50 hover:text-ink-900 transition-colors"
+          disabled={!ready && slides.length === 0}
+          className="text-xs uppercase tracking-[0.22em] text-ink-100 border border-ink-50/40 px-8 py-3.5 hover:bg-ink-50 hover:text-ink-900 transition-colors disabled:opacity-40"
         >
-          Enter gallery
+          Browse full collection
         </button>
+        <p className="text-[10px] text-ink-500 tracking-wide">Stay as long as you like</p>
       </div>
     </div>
   );
@@ -205,9 +209,6 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
 export function shouldShowFoyer(): boolean {
   try {
     if (typeof window === 'undefined') return false;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      // Still show briefly is optional; we allow show but auto-skip faster
-    }
     return sessionStorage.getItem(SESSION_KEY) !== '1';
   } catch {
     return false;

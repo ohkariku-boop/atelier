@@ -63,11 +63,16 @@ export function ArtworkCard({ auction, onClick, onArtistClick }: ArtworkCardProp
           {artist?.studio_verified && <ShieldCheck className="w-3 h-3 text-emerald-500" />}
         </div>
 
+        <p className="atelier-credit mb-2">
+          {[artist?.name, artwork.medium, artwork.studio_verified ? 'Verified' : null]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
         <h3 className="font-serif text-lg font-semibold leading-tight mb-1 group-hover:text-accent-600 dark:group-hover:text-accent-400 transition-colors">
           {artwork.title}
         </h3>
         <p className="text-xs text-ink-500 uppercase tracking-wider mb-4">
-          {artwork.medium} {artwork.dimensions ? `· ${artwork.dimensions}` : ''}
+          {artwork.dimensions || artwork.medium}
         </p>
 
         <div className="flex items-end justify-between pt-3 border-t border-ink-100 dark:border-ink-800">

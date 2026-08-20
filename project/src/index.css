@@ -120,3 +120,35 @@
     transition: opacity 0.25s ease;
   }
 }
+
+
+/* Gallery title — one-time mask reveal after foyer */
+.atelier-title-reveal {
+  overflow: hidden;
+}
+.atelier-title-reveal span {
+  display: block;
+  transform: translateY(110%);
+  animation: atelier-title-up 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.atelier-title-reveal span:nth-child(2) {
+  animation-delay: 0.12s;
+}
+@keyframes atelier-title-up {
+  to { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atelier-title-reveal span {
+    transform: none;
+    animation: none;
+  }
+}
+
+/* Museum-style credit line */
+.atelier-credit {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  line-height: 1.45;
+  color: inherit;
+  opacity: 0.7;
+}
