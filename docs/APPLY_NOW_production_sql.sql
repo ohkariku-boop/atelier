@@ -167,7 +167,7 @@ BEGIN
   END;
 
   UPDATE auctions
-  SET status = 'ended', outcome = 'sold_buy_now', end_time = now(),
+  SET status = 'ended', outcome = 'sold', end_time = now(),
       current_bid = v_artwork.buy_now_price
   WHERE id = p_auction_id;
 
