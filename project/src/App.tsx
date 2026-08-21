@@ -18,6 +18,8 @@ import { MessagesPage } from '@/pages/MessagesPage';
 import { CollectionPage } from '@/pages/CollectionPage';
 import { VerifyPage } from '@/pages/VerifyPage';
 import { CollectorVault } from '@/pages/CollectorVault';
+import { HouseFloor } from '@/pages/HouseFloor';
+import { KycPage } from '@/pages/KycPage';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { EntryFoyer, shouldShowFoyer } from '@/components/EntryFoyer';
@@ -77,6 +79,10 @@ function AppContent() {
           <VerifyPage slug={route.slug} navigate={navigate} />
         ) : route.name === 'vault' ? (
           <CollectorVault navigate={navigate} />
+        ) : route.name === 'house' ? (
+          <HouseFloor slug={route.slug} navigate={navigate} />
+        ) : route.name === 'kyc' ? (
+          <KycPage navigate={navigate} />
         ) : null}
       </main>
       <Footer navigate={navigate} />

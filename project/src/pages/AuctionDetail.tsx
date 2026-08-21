@@ -11,6 +11,7 @@ import { tryCloseAuction } from '@/lib/closeAuction';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { setPageMeta, resetPageMeta } from '@/lib/pageMeta';
+import { LiveStreamRoom } from '@/components/LiveStreamRoom';
 
 interface AuctionDetailProps {
   auctionId: string;
@@ -665,6 +666,16 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                       </li>
                     ))}
                   </ol>
+                </div>
+              )}
+
+              {(auction as any).live_stream_url && (
+                <div className="mb-4">
+                  <LiveStreamRoom
+                    url={(auction as any).live_stream_url}
+                    active={!!(auction as any).live_stream_active}
+                    title={artwork.title}
+                  />
                 </div>
               )}
 

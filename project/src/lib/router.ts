@@ -12,7 +12,9 @@ export type Route =
   | { name: 'messages'; conversationId?: string }
   | { name: 'collection'; slug: string }
   | { name: 'verify'; slug: string }
-  | { name: 'vault' };
+  | { name: 'vault' }
+  | { name: 'house'; slug: string }
+  | { name: 'kyc' };
 
 function parseHash(): Route {
   const hash = window.location.hash.slice(1);
@@ -32,6 +34,8 @@ function parseHash(): Route {
   if (parts[0] === 'collection' && parts[1]) return { name: 'collection', slug: parts[1] };
   if (parts[0] === 'verify' && parts[1]) return { name: 'verify', slug: parts[1] };
   if (parts[0] === 'vault') return { name: 'vault' };
+  if (parts[0] === 'house' && parts[1]) return { name: 'house', slug: parts[1] };
+  if (parts[0] === 'kyc') return { name: 'kyc' };
   return { name: 'gallery' };
 }
 

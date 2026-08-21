@@ -45,6 +45,17 @@ export function BidDrawer({ auction, onClose, onBidPlaced }: BidDrawerProps) {
 
     setSubmitting(true);
     try {
+      if (bidAmount >= 10000) {
+        const { data: kycOk, error: kycErr } = await supabase.rpc('bidder_kyc_ok', {
+          p_amount: bidAmount,
+        });
+        if (kycErr) throw kycErr;
+        if (!kycOk) {
+          showToast('Bids of $10,000+ require verified KYC. Complete identity verification first.', 'error');
+          setSubmitting(false);
+          return;
+        }
+      }
       const { data, error } = await supabase.rpc('place_bid', {
         p_auction_id: auction.id,
         p_amount: bidAmount,

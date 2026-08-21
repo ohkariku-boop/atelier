@@ -33,7 +33,7 @@ interface CatalogRow extends Artwork {
   current_bid?: number | null;
 }
 
-type AdminTab = 'review' | 'catalog' | 'collections' | 'disputes';
+type AdminTab = 'review' | 'catalog' | 'collections' | 'disputes' | 'kyc';
 
 const methodLabel: Record<string, string> = {
   live_video: 'Live process video',
@@ -69,6 +69,8 @@ export function AdminReview({ navigate }: AdminReviewProps) {
   const [disputeOrders, setDisputeOrders] = useState<any[]>([]);
   const [disputeNotes, setDisputeNotes] = useState<Record<string, string>>({});
   const [disputeBusy, setDisputeBusy] = useState<string | null>(null);
+  const [kycQueue, setKycQueue] = useState<any[]>([]);
+  const [kycBusy, setKycBusy] = useState<string | null>(null);
 
   const loadPending = async () => {
     setLoadingPending(true);
@@ -167,6 +169,20 @@ export function AdminReview({ navigate }: AdminReviewProps) {
       .order('created_at', { ascending: false });
     setDisputeOrders(data || []);
   };
+
+  
+  useEffect(() => {
+    if (tab !== 'kyc') return;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, display_name, kyc_status, kyc_level, kyc_submitted_at, kyc_notes, aml_risk_flag')
+        .in('kyc_status', ['pending', 'verified', 'rejected', 'restricted'])
+        .order('kyc_submitted_at', { ascending: false })
+        .limit(50);
+      setKycQueue(data || []);
+    })();
+  }, [tab]);
 
   useEffect(() => {
     if (!session) return;
@@ -296,6 +312,17 @@ export function AdminReview({ navigate }: AdminReviewProps) {
                 {disputeOrders.length}
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('kyc')}
+            className={`text-xs uppercase tracking-wider px-3 py-1.5 border transition-colors ${
+              tab === 'kyc'
+                ? 'border-ink-900 dark:border-ink-300 bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                : 'border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-400'
+            }`}
+          >
+            KYC / AML
           </button>
           <button
             onClick={() => setTab('review')}

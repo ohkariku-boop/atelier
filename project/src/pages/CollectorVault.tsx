@@ -106,6 +106,16 @@ export function CollectorVault({ navigate }: CollectorVaultProps) {
                     >
                       Order
                     </button>
+                    {(o.insurance_certificate_url || aw.insurance_certificate_url) && (
+                      <a
+                        href={o.insurance_certificate_url || aw.insurance_certificate_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] uppercase tracking-wider text-ink-500"
+                      >
+                        Insurance
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
