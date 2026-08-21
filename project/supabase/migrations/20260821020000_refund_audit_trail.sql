@@ -38,6 +38,8 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_at timestamptz;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_reason text;
 
+DROP FUNCTION IF EXISTS public.admin_refund_order(uuid, text);
+
 CREATE OR REPLACE FUNCTION public.admin_refund_order(
   p_order_id uuid,
   p_reason text DEFAULT 'Admin refund'

@@ -63,6 +63,8 @@ GRANT EXECUTE ON FUNCTION public.ensure_artist_profile(text) TO authenticated;
 
 -- Admin refund / release order (status flip + note). Does not call Stripe API;
 -- pair with Stripe Dashboard refund until Connect reverse is wired.
+DROP FUNCTION IF EXISTS public.admin_refund_order(uuid, text);
+
 CREATE OR REPLACE FUNCTION public.admin_refund_order(
   p_order_id uuid,
   p_reason text DEFAULT 'Admin refund'
