@@ -8,6 +8,7 @@ interface TrustSafetyProps {
   section?: string;
 }
 
+// Production trust copy includes escrow & refunds orientation
 export function TrustSafety({ section }: TrustSafetyProps) {
   const [stats, setStats] = useState({ verified: 0, artists: 0, live: 0 });
 
@@ -179,6 +180,17 @@ export function TrustSafety({ section }: TrustSafetyProps) {
           </p>
         </div>
       </section>
+    
+      <section className="max-w-3xl mx-auto px-6 py-12 border-t border-ink-200 dark:border-ink-800">
+        <h2 className="font-serif text-2xl font-semibold mb-4">How payments work</h2>
+        <ul className="space-y-3 text-sm text-ink-600 dark:text-ink-300 leading-relaxed list-disc pl-5">
+          <li>Bidding is free. Your card is charged only when you win and complete Stripe Checkout.</li>
+          <li>Funds are held in escrow until delivery is confirmed or the dispute window closes.</li>
+          <li>Refunds for valid claims are processed by Atelier admin (Stripe Dashboard + order status).</li>
+          <li>Artists connect a Stripe Express account to receive payouts after successful delivery.</li>
+        </ul>
+      </section>
     </div>
   );
 }
+

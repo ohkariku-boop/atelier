@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile, UserRole } from '@/types';
+import { ensureArtistProfile } from '@/lib/artistProvision';
 
 interface AuthContextValue {
   session: Session | null;
@@ -27,11 +28,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
+    let { data } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
+
+    // Self-heal: artist role without studio row
+    if (data && data.role === 'artist' && !data.artist_id) {
+      await ensureArtistProfile(data.display_name || undefined);
+      const again = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      data = again.data;
+    }
+
     setProfile(data as Profile | null);
   }, []);
 
@@ -74,9 +83,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .insert({ id: data.user.id, display_name: displayName, role });
       if (profileError) return { error: profileError.message };
+
+      // Artists get a studio row immediately so Studio Desk works on first login
+      if (role === 'artist') {
+        const { error: artistErr } = await ensureArtistProfile(displayName);
+        if (artistErr) return { error: artistErr };
+        await loadProfile(data.user.id);
+      }
     }
     return { error: null };
-  }, []);
+  }, [loadProfile]);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();

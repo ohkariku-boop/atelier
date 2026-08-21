@@ -58,9 +58,17 @@ export async function payForOrder(orderId: string): Promise<{ error?: string; re
     window.location.href = result.url;
     return { redirected: true };
   }
-  if (result.notConfigured) {
-    // Dev / pre-Stripe path
+  // Dummy checkout only when explicitly enabled (local/demo). Never in production builds
+  // unless VITE_ALLOW_DUMMY_PAYMENT=true is set at build time.
+  const allowDummy = import.meta.env.VITE_ALLOW_DUMMY_PAYMENT === 'true';
+  if (result.notConfigured && allowDummy) {
     return completeDummyPayment(orderId);
+  }
+  if (result.notConfigured) {
+    return {
+      error:
+        'Card payments are not configured yet. Atelier admin must add Stripe keys before checkout can complete.',
+    };
   }
   return { error: result.error || 'Payment could not be started' };
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, CreditCard, Gavel, TrendingUp, ShieldCheck, Lock } from 'lucide-react';
+import { X, Gavel, TrendingUp, ShieldCheck } from 'lucide-react';
 import type { AuctionWithDetails } from '@/types';
 import { formatCurrency } from '@/lib/theme';
 import { useToast } from '@/context/ToastContext';
@@ -14,10 +14,9 @@ interface BidDrawerProps {
 
 export function BidDrawer({ auction, onClose, onBidPlaced }: BidDrawerProps) {
   const { showToast } = useToast();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const [bidAmount, setBidAmount] = useState<number>(auction.current_bid + 10);
   const [submitting, setSubmitting] = useState(false);
-  const [preAuthed, setPreAuthed] = useState(false);
 
   const minBid = auction.current_bid + 10;
   const reserveMet = auction.current_bid >= auction.artwork.reserve_price;
@@ -30,14 +29,9 @@ export function BidDrawer({ auction, onClose, onBidPlaced }: BidDrawerProps) {
 
   const quickBids = [10, 50, 100];
 
-  const handlePreAuth = () => {
-    setPreAuthed(true);
-    showToast('Credit card pre-authorized. You can now place bids.', 'success');
-  };
-
   const placeBid = async () => {
-    if (!preAuthed) {
-      showToast('Please complete credit card pre-authorization first.', 'error');
+    if (!session?.user) {
+      showToast('Please sign in to place a bid.', 'error');
       return;
     }
     if (bidAmount < minBid) {
@@ -45,7 +39,7 @@ export function BidDrawer({ auction, onClose, onBidPlaced }: BidDrawerProps) {
       return;
     }
     if (!profile?.display_name) {
-      showToast('Please sign in to place a bid.', 'error');
+      showToast('Please complete your profile display name before bidding.', 'error');
       return;
     }
 
@@ -59,8 +53,8 @@ export function BidDrawer({ auction, onClose, onBidPlaced }: BidDrawerProps) {
 
       if (error) throw error;
 
-      const result = data as { new_end_time: string; anti_snipe_triggered: boolean };
-      if (result.anti_snipe_triggered) {
+      const result = data as { new_end_time: string; anti_snipe_triggered?: boolean; anti_snipe?: boolean };
+      if (result.anti_snipe_triggered || result.anti_snipe) {
         showToast(`Bid placed! Anti-snipe triggered: extended 2 minutes.`, 'success');
       } else {
         showToast(`Bid of ${formatCurrency(bidAmount)} placed successfully!`, 'success');
@@ -78,123 +72,89 @@ export function BidDrawer({ auction, onClose, onBidPlaced }: BidDrawerProps) {
   return (
     <div className="fixed inset-0 z-[80] flex justify-end">
       <div className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-ink-50 dark:bg-ink-900 h-full overflow-y-auto animate-slide-in-right">
-        <div className="sticky top-0 bg-ink-50 dark:bg-ink-900 border-b border-ink-200 dark:border-ink-800 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="font-serif text-xl font-semibold">Place Your Bid</h2>
-            <p className="text-xs text-ink-500 mt-0.5">{auction.artwork.title}</p>
+      <div className="relative w-full max-w-md bg-white dark:bg-ink-950 h-full shadow-2xl flex flex-col animate-slide-up border-l border-ink-200 dark:border-ink-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-ink-200 dark:border-ink-800">
+          <div className="flex items-center gap-2">
+            <Gavel className="w-5 h-5 text-accent-500" />
+            <h2 className="font-serif text-lg font-semibold">Place a bid</h2>
           </div>
-          <button onClick={onClose} className="p-2 text-ink-500 hover:text-ink-900 dark:hover:text-ink-100 transition-colors">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-ink-100 dark:hover:bg-ink-900 rounded" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Current bid display */}
-          <div className="bg-ink-100 dark:bg-ink-800 p-5">
-            <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-1">Current Highest Bid</p>
-            <p className="font-mono text-3xl font-bold tabular-nums">{formatCurrency(auction.current_bid)}</p>
-            <div className="flex items-center justify-between mt-3">
-              <span className="text-xs text-ink-500">{auction.bid_count} bids placed</span>
-              <span className={`text-xs font-semibold flex items-center gap-1 ${reserveMet ? 'text-emerald-600 dark:text-emerald-400' : 'text-gold-600'}`}>
-                <ShieldCheck className="w-3 h-3" />
-                {reserveMet ? 'Reserve Met' : 'Reserve Pending'}
-              </span>
-            </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-1">Lot</p>
+            <p className="font-serif text-xl font-semibold">{auction.artwork.title}</p>
+            <p className="text-sm text-ink-500 mt-1">{auction.artwork.medium}</p>
           </div>
 
-          {/* Bidding as */}
-          <div className="flex items-center gap-2 text-sm text-ink-500">
-            <div className="w-7 h-7 bg-ink-900 dark:bg-ink-50 rounded-full flex items-center justify-center text-xs font-bold text-ink-50 dark:text-ink-900">
-              {profile?.display_name?.charAt(0).toUpperCase() || 'U'}
-            </div>
-            <span>Bidding as <span className="font-semibold text-ink-900 dark:text-ink-100">{profile?.display_name}</span></span>
-          </div>
-
-          {/* Pre-auth */}
-          {!preAuthed ? (
-            <div className="border border-ink-200 dark:border-ink-800 p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <CreditCard className="w-5 h-5 text-ink-600 dark:text-ink-400" />
-                <h3 className="font-semibold text-sm">Credit Card Pre-Authorization</h3>
-              </div>
-              <p className="text-xs text-ink-500 mb-4 leading-relaxed">
-                One-click pre-auth required before bidding. Your card will only be charged if you win the auction.
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 border border-ink-200 dark:border-ink-800">
+              <p className="text-[10px] uppercase tracking-widest text-ink-400">Current</p>
+              <p className="font-mono text-lg font-bold tabular-nums">
+                {formatCurrency(auction.current_bid > 0 ? auction.current_bid : auction.artwork.starting_bid)}
               </p>
-              <button onClick={handlePreAuth} className="btn-primary w-full text-sm">
-                <span className="flex items-center justify-center gap-2">
-                  <Lock className="w-4 h-4" />
-                  Authorize Card
-                </span>
-              </button>
             </div>
-          ) : (
-            <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Card pre-authorized</span>
-            </div>
-          )}
-
-          {/* Quick bids */}
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-2">Quick Bid</p>
-            <div className="grid grid-cols-3 gap-2">
-              {quickBids.map((increment) => {
-                const amount = auction.current_bid + increment;
-                return (
-                  <button
-                    key={increment}
-                    onClick={() => setBidAmount(amount)}
-                    className={`py-3 text-center font-mono text-sm font-semibold transition-all duration-200 ${
-                      bidAmount === amount
-                        ? 'bg-ink-900 text-ink-50 dark:bg-ink-50 dark:text-ink-900'
-                        : 'border border-ink-200 dark:border-ink-700 hover:border-ink-900 dark:hover:border-ink-400'
-                    }`}
-                  >
-                    +${increment}
-                  </button>
-                );
-              })}
+            <div className="p-3 border border-ink-200 dark:border-ink-800">
+              <p className="text-[10px] uppercase tracking-widest text-ink-400">Reserve</p>
+              <p className={`text-sm font-medium ${reserveMet ? 'text-emerald-600' : 'text-ink-500'}`}>
+                {reserveMet ? 'Met' : 'Not yet met'}
+              </p>
             </div>
           </div>
 
-          {/* Custom bid */}
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-2">Custom Bid</p>
-            <div className="flex items-center border border-ink-200 dark:border-ink-700 focus-within:border-ink-900 dark:focus-within:border-ink-400 transition-colors">
-              <span className="pl-4 font-mono text-ink-400">$</span>
-              <input
-                type="number"
-                value={bidAmount}
-                onChange={(e) => setBidAmount(Number(e.target.value))}
-                min={minBid}
-                step={10}
-                className="flex-1 px-2 py-3 bg-transparent font-mono text-lg font-semibold focus:outline-none"
-              />
-            </div>
-            <p className="text-xs text-ink-400 mt-1.5">Minimum: {formatCurrency(minBid)}</p>
-          </div>
-
-          {/* Anti-snipe notice */}
           {inFinal30s && (
-            <div className="flex items-start gap-2 px-4 py-3 bg-gold-50 dark:bg-gold-500/10 border border-gold-200 dark:border-gold-500/30">
-              <TrendingUp className="w-4 h-4 text-gold-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-gold-700 dark:text-gold-400 leading-relaxed">
-                <span className="font-semibold">Anti-Snipe Active:</span> Bids in the final 30 seconds extend the timer by 2 minutes.
+            <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm">
+              <TrendingUp className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-amber-800 dark:text-amber-200">
+                Final moments — anti-snipe may extend the auction if you bid now.
               </p>
             </div>
           )}
 
-          {/* Submit */}
+          <div className="flex items-start gap-2 p-3 bg-ink-50 dark:bg-ink-900 border border-ink-200 dark:border-ink-800 text-sm">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <p className="text-ink-600 dark:text-ink-300 leading-relaxed">
+              Winning bids create a payment-due order. Card capture happens at checkout (Stripe), not when you bid.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-xs uppercase tracking-widest text-ink-400 font-semibold">Your bid</label>
+            <input
+              type="number"
+              value={bidAmount}
+              onChange={(e) => setBidAmount(Number(e.target.value))}
+              min={minBid}
+              step={10}
+              className="mt-1.5 w-full text-lg font-mono p-3 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 focus:outline-none focus:border-ink-900 dark:focus:border-ink-400"
+            />
+            <p className="text-xs text-ink-400 mt-1.5">Minimum: {formatCurrency(minBid)}</p>
+            <div className="flex gap-2 mt-3">
+              {quickBids.map((inc) => (
+                <button
+                  key={inc}
+                  type="button"
+                  onClick={() => setBidAmount(minBid + inc)}
+                  className="text-xs px-3 py-1.5 border border-ink-200 dark:border-ink-700 hover:border-ink-900 dark:hover:border-ink-400"
+                >
+                  +{formatCurrency(inc)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-ink-200 dark:border-ink-800">
           <button
+            type="button"
             onClick={placeBid}
-            disabled={submitting || !preAuthed || bidAmount < minBid}
-            className="btn-accent w-full"
+            disabled={submitting || bidAmount < minBid || !session}
+            className="btn-accent w-full py-3.5 text-sm disabled:opacity-40"
           >
-            <span className="flex items-center justify-center gap-2">
-              <Gavel className="w-4 h-4" />
-              {submitting ? 'Placing Bid...' : `Bid ${formatCurrency(bidAmount)}`}
-            </span>
+            {submitting ? 'Placing bid…' : `Place bid · ${formatCurrency(bidAmount)}`}
           </button>
         </div>
       </div>

@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { tryCloseAuction } from '@/lib/closeAuction';
 import { AuctionRow } from '@/components/studio/AuctionRow';
 import { CreateListingForm } from '@/components/studio/CreateListingForm';
+import { ensureArtistProfile } from '@/lib/artistProvision';
 import { MiniBars } from '@/components/studio/MiniBars';
 import { startStripeConnectOnboarding } from '@/lib/stripe';
 
@@ -36,7 +37,22 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
 
   useEffect(() => {
     async function load() {
-      if (!session?.user?.id || !profile?.artist_id) {
+      if (!session?.user?.id) {
+        setLoading(false);
+        return;
+      }
+
+      let artistId = profile?.artist_id;
+      if (profile?.role === 'artist' && !artistId) {
+        const { artistId: ensured, error } = await ensureArtistProfile(profile.display_name || undefined);
+        if (error || !ensured) {
+          setLoading(false);
+          return;
+        }
+        artistId = ensured;
+      }
+
+      if (!artistId) {
         setLoading(false);
         return;
       }
@@ -45,7 +61,7 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
       const { data: artistData } = await supabase
         .from('artists')
         .select('*')
-        .eq('id', profile.artist_id)
+        .eq('id', artistId)
         .maybeSingle();
       setArtist(artistData as Artist | null);
 

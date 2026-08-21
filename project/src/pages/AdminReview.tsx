@@ -714,6 +714,26 @@ export function AdminReview({ navigate }: AdminReviewProps) {
                   >
                     Deny claim
                   </button>
+                  <button
+                    type="button"
+                    className="text-xs px-3 py-1.5 border border-red-300 text-red-700 dark:border-red-800 dark:text-red-400"
+                    disabled={disputeBusy === order.id}
+                    onClick={async () => {
+                      setDisputeBusy(order.id);
+                      const { error } = await supabase.rpc('admin_refund_order', {
+                        p_order_id: order.id,
+                        p_reason: disputeNotes[order.id] || 'Admin refund',
+                      });
+                      setDisputeBusy(null);
+                      if (error) showToast(error.message + ' — run production_hardening_sit migration if missing.', 'error');
+                      else {
+                        showToast('Order marked refunded. Also refund in Stripe Dashboard if captured.', 'success');
+                        loadDisputes();
+                      }
+                    }}
+                  >
+                    Mark refunded
+                  </button>
                 </div>
               </div>
             ))
