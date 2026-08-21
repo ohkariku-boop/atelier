@@ -107,15 +107,17 @@ BEGIN
   )
   RETURNING id INTO v_audit_id;
 
-  INSERT INTO notifications (user_id, type, title, body, link)
+
+  INSERT INTO notifications (user_id, type, title, body, order_id)
   SELECT o.user_id,
          'order_update',
          'Refund processed',
          COALESCE(NULLIF(trim(p_reason), ''), 'Your payment was refunded by Atelier admin.'),
-         'orders'
+         o.id
   FROM orders o
   WHERE o.id = p_order_id
     AND o.user_id IS NOT NULL;
+
 
   RETURN jsonb_build_object(
     'order_id', p_order_id,

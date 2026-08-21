@@ -178,13 +178,14 @@ BEGIN
   )
   RETURNING id INTO v_order_id;
 
-  INSERT INTO notifications (user_id, type, title, body, link)
+  INSERT INTO notifications (user_id, type, title, body, artwork_id, order_id)
   VALUES (
     v_uid,
     'order_update',
     'Buy Now reserved',
     'Complete payment for "' || v_artwork.title || '".',
-    'orders'
+    v_artwork.id,
+    v_order_id
   );
 
   RETURN jsonb_build_object('order_id', v_order_id, 'amount', v_artwork.buy_now_price);
