@@ -720,7 +720,7 @@ export function AdminReview({ navigate }: AdminReviewProps) {
                     disabled={disputeBusy === order.id}
                     onClick={async () => {
                       setDisputeBusy(order.id);
-                      const { error } = await supabase.rpc('admin_refund_order', {
+                      const { data: refundData, error } = await supabase.rpc('admin_refund_order', {
                         p_order_id: order.id,
                         p_reason: disputeNotes[order.id] || 'Admin refund',
                       });
