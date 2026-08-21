@@ -25,6 +25,9 @@ export function Header({ route, navigate }: HeaderProps) {
       : []),
     { name: 'orders', label: 'Orders', icon: Package, path: 'orders' },
     ...(session
+      ? [{ name: 'vault', label: 'Vault', icon: Package, path: 'vault' }]
+      : []),
+    ...(session
       ? [{ name: 'messages', label: 'Messages', icon: MessageSquare, path: 'messages' }]
       : []),
   ];

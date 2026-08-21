@@ -16,6 +16,8 @@ import { AuthPage } from '@/pages/AuthPage';
 import { AdminReview } from '@/pages/AdminReview';
 import { MessagesPage } from '@/pages/MessagesPage';
 import { CollectionPage } from '@/pages/CollectionPage';
+import { VerifyPage } from '@/pages/VerifyPage';
+import { CollectorVault } from '@/pages/CollectorVault';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { EntryFoyer, shouldShowFoyer } from '@/components/EntryFoyer';
@@ -71,6 +73,10 @@ function AppContent() {
           <MessagesPage navigate={navigate} conversationId={route.conversationId} />
         ) : route.name === 'collection' ? (
           <CollectionPage slug={route.slug} navigate={navigate} />
+        ) : route.name === 'verify' ? (
+          <VerifyPage slug={route.slug} navigate={navigate} />
+        ) : route.name === 'vault' ? (
+          <CollectorVault navigate={navigate} />
         ) : null}
       </main>
       <Footer navigate={navigate} />

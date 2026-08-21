@@ -33,6 +33,10 @@ export interface Artwork {
   reserve_price: number;
   starting_bid: number;
   buy_now_price?: number | null;
+  public_verify_slug?: string | null;
+  year_created?: string | null;
+  condition_grade?: string | null;
+  condition_report?: string | null;
   shipping_tier: ShippingTier;
   studio_verified: boolean;
   verification_video_url: string | null;

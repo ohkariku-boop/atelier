@@ -35,6 +35,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   const [viewCounted, setViewCounted] = useState(false);
   const [displayViewCount, setDisplayViewCount] = useState(0);
   const [galleryOrder, setGalleryOrder] = useState<string[]>([]);
+  const [provenance, setProvenance] = useState<any[]>([]);
 
   useEffect(() => {
     if (!auction) return;
@@ -89,6 +90,12 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
 
     setAuction({ ...auctionData, artwork: auctionData.artwork, artist });
     setLikeCount(auctionData.artwork.like_count || 0);
+        const { data: prov } = await supabase
+          .from('provenance_events')
+          .select('*')
+          .eq('artwork_id', auctionData.artwork.id)
+          .order('occurred_at', { ascending: true });
+        setProvenance(prov || []);
     setDisplayViewCount(auctionData.artwork.view_count || 0);
     setLoading(false);
   }, [auctionId]);
@@ -618,6 +625,47 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                     {buyingNow ? 'Processing…' : `Buy Now · ${formatCurrency(Number(artwork.buy_now_price))}`}
                   </button>
                 )}
+              )}
+
+              {((artwork as any).condition_grade || (artwork as any).condition_report) && (
+                <div className="px-4 py-3 border border-ink-200 dark:border-ink-800">
+                  <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-1">Condition</p>
+                  <p className="text-sm capitalize font-medium">{(artwork as any).condition_grade || 'See report'}</p>
+                  {(artwork as any).condition_report && (
+                    <p className="text-xs text-ink-500 mt-1 leading-relaxed">{(artwork as any).condition_report}</p>
+                  )}
+                </div>
+              )}
+
+              {((artwork as any).certificate_number || (artwork as any).public_verify_slug) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `verify/${(artwork as any).public_verify_slug || (artwork as any).certificate_number}`
+                    )
+                  }
+                  className="w-full text-xs uppercase tracking-wider py-2.5 border border-emerald-600/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"
+                >
+                  Verify certificate publicly
+                </button>
+              )}
+
+              {provenance.length > 0 && (
+                <div className="px-4 py-4 border border-ink-200 dark:border-ink-800">
+                  <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-3">Provenance</p>
+                  <ol className="space-y-3">
+                    {provenance.map((e) => (
+                      <li key={e.id} className="text-xs">
+                        <span className="text-ink-400">
+                          {new Date(e.occurred_at).toLocaleDateString()}
+                        </span>
+                        <span className="font-medium text-ink-800 dark:text-ink-100 ml-2">{e.title}</span>
+                        {e.detail && <p className="text-ink-500 mt-0.5 ml-0">{e.detail}</p>}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               )}
 
               {/* Anti-snipe notice */}

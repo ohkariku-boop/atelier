@@ -10,7 +10,9 @@ export type Route =
   | { name: 'trust'; section?: string }
   | { name: 'admin' }
   | { name: 'messages'; conversationId?: string }
-  | { name: 'collection'; slug: string };
+  | { name: 'collection'; slug: string }
+  | { name: 'verify'; slug: string }
+  | { name: 'vault' };
 
 function parseHash(): Route {
   const hash = window.location.hash.slice(1);
@@ -28,6 +30,8 @@ function parseHash(): Route {
   if (parts[0] === 'admin') return { name: 'admin' };
   if (parts[0] === 'messages') return { name: 'messages', conversationId: parts[1] };
   if (parts[0] === 'collection' && parts[1]) return { name: 'collection', slug: parts[1] };
+  if (parts[0] === 'verify' && parts[1]) return { name: 'verify', slug: parts[1] };
+  if (parts[0] === 'vault') return { name: 'vault' };
   return { name: 'gallery' };
 }
 

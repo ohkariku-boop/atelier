@@ -24,6 +24,9 @@ export function CreateListingForm({ artist, editingArtwork, onCancel, onSuccess 
   const [buyNowPrice, setBuyNowPrice] = useState(
     editingArtwork?.buy_now_price != null ? String(editingArtwork.buy_now_price) : ''
   );
+  const [conditionGrade, setConditionGrade] = useState((editingArtwork as any)?.condition_grade || '');
+  const [conditionReport, setConditionReport] = useState((editingArtwork as any)?.condition_report || '');
+  const [yearCreated, setYearCreated] = useState((editingArtwork as any)?.year_created || '');
   const [startingBid, setStartingBid] = useState<number>(editingArtwork?.starting_bid ?? 200);
   const [shippingTier, setShippingTier] = useState<string>(editingArtwork?.shipping_tier || 'medium_framed');
   const [certified, setCertified] = useState(false);
@@ -218,6 +221,9 @@ export function CreateListingForm({ artist, editingArtwork, onCancel, onSuccess 
             reserve_price: reservePrice,
             starting_bid: startingBid,
             buy_now_price: buyNowPrice ? Number(buyNowPrice) : null,
+            condition_grade: conditionGrade || null,
+            condition_report: conditionReport.trim() || null,
+            year_created: yearCreated.trim() || null,
             shipping_tier: shippingTier,
             studio_verified: false,
             verification_video_url: verificationMethod === 'live_video' ? videoUrl : null,
