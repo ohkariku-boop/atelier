@@ -190,6 +190,59 @@ export function TrustSafety({ section }: TrustSafetyProps) {
           <li>Artists connect a Stripe Express account to receive payouts after successful delivery.</li>
         </ul>
       </section>
+
+      <section id="terms" className="mb-16 scroll-mt-24">
+        <h2 className="font-serif text-xl font-semibold mb-4">Terms of Use (summary)</h2>
+        <div className="text-sm text-ink-600 dark:text-ink-400 leading-relaxed space-y-3">
+          <p>
+            Atelier is a marketplace for physical, human-made art sold primarily through timed auctions.
+            By creating an account you agree to provide accurate information, respect other users, and
+            only list works you have the right to sell.
+          </p>
+          <p>
+            Artists are responsible for the accuracy of titles, medium, provenance claims, and shipping.
+            Buyers are responsible for bids they place; winning bids create a payment obligation.
+          </p>
+          <p>
+            Atelier may remove listings, suspend accounts, or reverse outcomes in cases of fraud,
+            policy violations, or technical error.
+          </p>
+        </div>
+      </section>
+
+      <section id="privacy" className="mb-16 scroll-mt-24">
+        <h2 className="font-serif text-xl font-semibold mb-4">Privacy (summary)</h2>
+        <div className="text-sm text-ink-600 dark:text-ink-400 leading-relaxed space-y-3">
+          <p>
+            We store account email, profile display name, role, messages, bids, and order details needed
+            to run the marketplace. Payment card data is handled by Stripe — Atelier does not store full
+            card numbers.
+          </p>
+          <p>
+            We use essential cookies/local storage for session and preferences. Contact support to request
+            account deletion subject to legal retention (e.g. completed orders).
+          </p>
+        </div>
+      </section>
+
+      <section id="payments" className="mb-16 scroll-mt-24">
+        <h2 className="font-serif text-xl font-semibold mb-4">Payments &amp; escrow</h2>
+        <div className="text-sm text-ink-600 dark:text-ink-400 leading-relaxed space-y-3">
+          <p>
+            After you win an auction or complete Buy Now, payment is due via Stripe Checkout. Funds are
+            held in escrow-style status until the order progresses (shipped / delivered / completed).
+          </p>
+          <p>
+            Platform fees may apply on successful sales. Artists connect a Stripe Express account to
+            receive payouts. Refunds and dispute outcomes are handled by Atelier admins and, where
+            applicable, Stripe.
+          </p>
+          <p>
+            Dummy/test checkout is disabled in production builds unless explicitly enabled for demos.
+          </p>
+        </div>
+      </section>
+
     </div>
   );
 }

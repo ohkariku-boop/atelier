@@ -302,7 +302,7 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim, o
             <div className="mb-2 p-5 bg-ink-50 dark:bg-ink-900 border border-ink-200 dark:border-ink-800">
               <p className="text-sm font-semibold mb-1">Complete Payment</p>
               <p className="text-xs text-ink-500 mb-4">
-                This is a simulated checkout for testing - no real card is charged. Enter any values below.
+                Pay securely with Stripe. Funds are held in escrow until delivery is confirmed.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div className="sm:col-span-2">
@@ -491,6 +491,7 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim, o
 
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; classes: string }> = {
+    refunded: { label: 'Refunded', classes: 'bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300' },
     pending_payment: { label: 'Payment Due', classes: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400' },
     escrow: { label: 'In Escrow', classes: 'bg-gold-100 text-gold-700 dark:bg-gold-500/20 dark:text-gold-400' },
     shipped: { label: 'Shipped', classes: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' },

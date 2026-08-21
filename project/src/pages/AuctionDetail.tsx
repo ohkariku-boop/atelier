@@ -162,6 +162,27 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
       .then(({ data }) => setLiked(!!data));
   }, [auction?.artwork.id, session?.user?.id]);
 
+  
+  const [buyingNow, setBuyingNow] = useState(false);
+  const handleBuyNow = async () => {
+    if (!session?.user) {
+      showToast('Sign in to buy now.', 'error');
+      return;
+    }
+    if (!auction) return;
+    setBuyingNow(true);
+    try {
+      const { data, error } = await supabase.rpc('purchase_buy_now', { p_auction_id: auction.id });
+      if (error) throw error;
+      showToast('Reserved — complete payment in Orders.', 'success');
+      navigate('orders');
+    } catch (err: any) {
+      showToast(err?.message || 'Buy Now failed.', 'error');
+    } finally {
+      setBuyingNow(false);
+    }
+  };
+
   const toggleLike = async () => {
     if (!auction?.artwork.id) return;
     if (!session?.user?.id) {
@@ -583,6 +604,20 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                       : status === 'upcoming' ? 'Auction Not Started' : status === 'ended' ? 'Auction Ended' : session ? 'Place Bid' : 'Sign In to Bid'}
                   </span>
                 </button>
+                {artwork.buy_now_price &&
+                  auction.bid_count === 0 &&
+                  (status === 'live' || status === 'flash') &&
+                  artwork.studio_verified &&
+                  artwork.verification_method && (
+                  <button
+                    type="button"
+                    disabled={buyingNow}
+                    onClick={handleBuyNow}
+                    className="btn-secondary w-full text-sm py-3 mt-2"
+                  >
+                    {buyingNow ? 'Processing…' : `Buy Now · ${formatCurrency(Number(artwork.buy_now_price))}`}
+                  </button>
+                )}
               )}
 
               {/* Anti-snipe notice */}

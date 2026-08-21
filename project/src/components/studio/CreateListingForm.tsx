@@ -21,6 +21,9 @@ export function CreateListingForm({ artist, editingArtwork, onCancel, onSuccess 
   const [dimensions, setDimensions] = useState(editingArtwork?.dimensions || '');
   const [description, setDescription] = useState(editingArtwork?.description || '');
   const [reservePrice, setReservePrice] = useState<number>(editingArtwork?.reserve_price ?? 500);
+  const [buyNowPrice, setBuyNowPrice] = useState(
+    editingArtwork?.buy_now_price != null ? String(editingArtwork.buy_now_price) : ''
+  );
   const [startingBid, setStartingBid] = useState<number>(editingArtwork?.starting_bid ?? 200);
   const [shippingTier, setShippingTier] = useState<string>(editingArtwork?.shipping_tier || 'medium_framed');
   const [certified, setCertified] = useState(false);
@@ -193,6 +196,13 @@ export function CreateListingForm({ artist, editingArtwork, onCancel, onSuccess 
           p_verification_video_url: verificationMethod === 'live_video' ? videoUrl : null,
           p_evidence_items: evidencePayload,
         });
+        if (!error && buyNowPrice) {
+          await supabase.from('artworks').update({
+            buy_now_price: Number(buyNowPrice),
+          }).eq('id', editingArtwork.id);
+        } else if (!error && !buyNowPrice) {
+          await supabase.from('artworks').update({ buy_now_price: null }).eq('id', editingArtwork.id);
+        }
         if (error) throw error;
       } else {
         const { error: artError } = await supabase
@@ -207,6 +217,7 @@ export function CreateListingForm({ artist, editingArtwork, onCancel, onSuccess 
             image_url: imageUrl,
             reserve_price: reservePrice,
             starting_bid: startingBid,
+            buy_now_price: buyNowPrice ? Number(buyNowPrice) : null,
             shipping_tier: shippingTier,
             studio_verified: false,
             verification_video_url: verificationMethod === 'live_video' ? videoUrl : null,
