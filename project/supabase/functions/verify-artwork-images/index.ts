@@ -138,11 +138,21 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization') || '';
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    // Prefer admin user; allow service role bearer
+    // Prefer admin user; allow service role (raw key or JWT with role service_role)
     let allowed = false;
-    if (authHeader.includes(SERVICE_ROLE_KEY)) {
+    const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (bearer && SERVICE_ROLE_KEY && bearer === SERVICE_ROLE_KEY) {
       allowed = true;
-    } else if (authHeader) {
+    }
+    if (!allowed && bearer) {
+      try {
+        const payload = JSON.parse(atob(bearer.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.role === 'service_role') allowed = true;
+      } catch {
+        /* not a jwt */
+      }
+    }
+    if (!allowed && authHeader) {
       const userClient = createClient(SUPABASE_URL, ANON || SERVICE_ROLE_KEY, {
         global: { headers: { Authorization: authHeader } },
       });
