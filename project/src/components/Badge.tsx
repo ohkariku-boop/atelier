@@ -1,8 +1,8 @@
-import { ShieldCheck, Zap, Radio } from 'lucide-react';
+import { ShieldCheck, Zap, Radio, Tag } from 'lucide-react';
 import type { Artwork, Auction } from '@/types';
 
 interface BadgeProps {
-  variant: 'live' | 'flash' | 'verified' | 'upcoming' | 'ended';
+  variant: 'live' | 'flash' | 'verified' | 'upcoming' | 'ended' | 'buy_now';
   artwork?: Artwork;
   auction?: Auction;
   size?: 'sm' | 'md';
@@ -40,6 +40,12 @@ export function Badge({ variant, size = 'sm' }: BadgeProps) {
       icon: Radio,
       label: 'Ended',
       classes: 'bg-ink-300 text-ink-600 dark:bg-ink-800 dark:text-ink-500',
+      pulse: false,
+    },
+    buy_now: {
+      icon: Tag,
+      label: 'Buy Now',
+      classes: 'bg-ink-900 text-white dark:bg-ink-100 dark:text-ink-900',
       pulse: false,
     },
   };

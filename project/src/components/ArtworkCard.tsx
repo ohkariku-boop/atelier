@@ -20,6 +20,9 @@ export function ArtworkCard({ auction, onClick, onArtistClick }: ArtworkCardProp
   if (status === 'upcoming') badges.push(<Badge key="upcoming" variant="upcoming" />);
   if (status === 'ended') badges.push(<Badge key="ended" variant="ended" />);
   if (artwork.studio_verified) badges.push(<Badge key="verified" variant="verified" />);
+  if (artwork.buy_now_price != null && Number(artwork.buy_now_price) > 0) {
+    badges.push(<Badge key="buynow" variant="buy_now" />);
+  }
 
   return (
     <button
@@ -91,6 +94,15 @@ export function ArtworkCard({ auction, onClick, onArtistClick }: ArtworkCardProp
             </p>
           </div>
         </div>
+
+        {artwork.buy_now_price != null && Number(artwork.buy_now_price) > 0 && (
+          <div className="flex items-center justify-between mt-2 text-xs">
+            <span className="uppercase tracking-widest text-ink-400">Buy Now</span>
+            <span className="font-mono font-semibold tabular-nums text-ink-800 dark:text-ink-200">
+              {formatCurrency(Number(artwork.buy_now_price))}
+            </span>
+          </div>
+        )}
 
         {auction.bid_count > 0 && (
           <div className="flex items-center gap-1.5 mt-2 text-xs text-ink-400">

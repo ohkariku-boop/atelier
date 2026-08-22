@@ -13,7 +13,7 @@ interface GalleryFloorProps {
 }
 
 type SortOption = 'ending_soon' | 'price_low' | 'price_high' | 'newest' | 'most_bids';
-type StatusFilter = 'all_active' | 'live' | 'flash' | 'ending_soon';
+type StatusFilter = 'all_active' | 'live' | 'flash' | 'ending_soon' | 'buy_now';
 
 const PAGE_SIZE = 15;
 
@@ -165,6 +165,11 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
           (a.status === 'live' || a.status === 'flash') &&
           new Date(a.end_time).getTime() <= in24h
       );
+    } else if (statusFilter === 'buy_now') {
+      result = result.filter((a) => {
+        const price = (a.artwork as { buy_now_price?: number | null })?.buy_now_price;
+        return price != null && Number(price) > 0;
+      });
     }
     // 'all_active' keeps everything already loaded (live/flash/upcoming)
 
@@ -386,6 +391,7 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
                   [
                     ['all_active', 'All Active'],
                     ['live', 'Live'],
+                    ['buy_now', 'Buy Now'],
                     ['flash', 'Flash'],
                     ['ending_soon', 'Ending Soon'],
                   ] as [StatusFilter, string][]
