@@ -6,12 +6,7 @@ name: Deploy Supabase Edge Functions
 #   SUPABASE_ACCESS_TOKEN  – https://supabase.com/dashboard/account/tokens
 #   SUPABASE_PROJECT_REF   – ogjxysfnidfclgjedjzs (or set as variable)
 #
-# Optional (if not using a secret for ref):
-#   defaults to ogjxysfnidfclgjedjzs below
-#
-# Stripe / Resend secrets are configured in Supabase Dashboard → Edge Function Secrets
-# (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SITE_URL, RESEND_API_KEY, etc.)
-# This workflow only uploads function *code*.
+# Stripe / Resend / OpenAI secrets are configured in Supabase Dashboard → Edge Function Secrets
 
 on:
   workflow_dispatch:
@@ -24,7 +19,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ./project
@@ -49,21 +44,31 @@ jobs:
           set -e
           if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
             echo "Missing secret SUPABASE_ACCESS_TOKEN"
-            echo "Create one at https://supabase.com/dashboard/account/tokens"
             exit 1
           fi
 
           REF="${PROJECT_REF:-ogjxysfnidfclgjedjzs}"
           echo "Deploying functions to project ref: $REF"
 
-          # Core marketplace functions
-          supabase functions deploy close-expired-auctions --project-ref "$REF" --no-verify-jwt || true
-          supabase functions deploy send-receipt-email --project-ref "$REF"
-          supabase functions deploy notify-seller-sale --project-ref "$REF" || true
+          deploy() {
+            local name="$1"
+            local extra="${2:-}"
+            echo "=== Deploy $name ==="
+            # shellcheck disable=SC2086
+            supabase functions deploy "$name" --project-ref "$REF" $extra
+          }
 
-          # Stripe
-          supabase functions deploy stripe-create-checkout --project-ref "$REF"
-          supabase functions deploy stripe-webhook --project-ref "$REF" --no-verify-jwt
-          supabase functions deploy stripe-connect-onboard --project-ref "$REF"
+          deploy close-expired-auctions "--no-verify-jwt" || true
+          deploy send-receipt-email
+          deploy notify-seller-sale || true
+
+          deploy stripe-create-checkout
+          deploy stripe-webhook "--no-verify-jwt"
+          deploy stripe-connect-onboard
+          deploy stripe-connect-status || true
+          deploy stripe-identity-create || true
+          deploy stripe-identity-status || true
+
+          deploy verify-artwork-images
 
           echo "Deploy finished."
