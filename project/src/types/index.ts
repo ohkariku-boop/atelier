@@ -112,6 +112,7 @@ export interface AppNotification {
   body: string;
   artwork_id: string | null;
   order_id: string | null;
+  auction_id?: string | null;
   read: boolean;
   created_at: string;
 }

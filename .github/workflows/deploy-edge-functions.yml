@@ -70,5 +70,6 @@ jobs:
           deploy stripe-identity-status || true
 
           deploy verify-artwork-images
+          deploy notify-ending-lots "--no-verify-jwt" || true
 
           echo "Deploy finished."

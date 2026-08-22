@@ -22,6 +22,8 @@ function destinationFor(n: AppNotification): string {
       return 'studio';
     case 'dispute_resolved':
       return 'orders';
+    case 'auction_ending':
+      return (n as any).auction_id ? `auction/${(n as any).auction_id}` : 'gallery';
     default:
       if (n.order_id) return 'orders';
       if (n.artwork_id) return 'studio';

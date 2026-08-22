@@ -33,7 +33,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Atelier', {
       body: data.body || '',
-      icon: './vite.svg',
+      icon: './favicon.svg',
       data: data.url ? { url: data.url } : {},
     })
   );
