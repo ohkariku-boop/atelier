@@ -196,17 +196,15 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim, o
   const [claimFormOpen, setClaimFormOpen] = useState(false);
   const [claimReason, setClaimReason] = useState('');
   const [submittingClaim, setSubmittingClaim] = useState(false);
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvc, setCardCvc] = useState('');
   const [payingNow, setPayingNow] = useState(false);
-
-  const cardValid = cardNumber.replace(/\s/g, '').length >= 12 && /^\d{2}\/\d{2}$/.test(cardExpiry) && cardCvc.length >= 3;
 
   const handlePay = async () => {
     setPayingNow(true);
-    await onCompletePayment();
-    setPayingNow(false);
+    try {
+      await onCompletePayment();
+    } finally {
+      setPayingNow(false);
+    }
   };
 
   const claimWindowOpen = order.paid_at
@@ -302,44 +300,25 @@ function OrderCard({ order, onUpdateTracking, onConfirmDelivery, onRaiseClaim, o
             <div className="mb-2 p-5 bg-ink-50 dark:bg-ink-900 border border-ink-200 dark:border-ink-800">
               <p className="text-sm font-semibold mb-1">Complete Payment</p>
               <p className="text-xs text-ink-500 mb-4">
-                Pay securely with Stripe. Funds are held in escrow until delivery is confirmed.
+                You will be redirected to Stripe Checkout to pay securely. Funds are held in escrow
+                until delivery is confirmed.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                <div className="sm:col-span-2">
-                  <label className="text-xs text-ink-500 mb-1 block">Card Number</label>
-                  <input
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value)}
-                    placeholder="4242 4242 4242 4242"
-                    className="w-full text-sm p-2.5 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-ink-500 mb-1 block">Expiry (MM/YY)</label>
-                  <input
-                    value={cardExpiry}
-                    onChange={(e) => setCardExpiry(e.target.value)}
-                    placeholder="12/29"
-                    className="w-full text-sm p-2.5 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-ink-500 mb-1 block">CVC</label>
-                  <input
-                    value={cardCvc}
-                    onChange={(e) => setCardCvc(e.target.value)}
-                    placeholder="123"
-                    className="w-full text-sm p-2.5 border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 rounded"
-                  />
-                </div>
-              </div>
+              <p className="text-sm font-mono font-semibold mb-4">
+                Total due {formatCurrency(total)}
+                <span className="text-xs font-sans font-normal text-ink-500 ml-2">
+                  (artwork + shipping)
+                </span>
+              </p>
               <button
                 onClick={handlePay}
-                disabled={!cardValid || payingNow}
+                disabled={payingNow}
                 className="btn-accent w-full py-3 text-sm disabled:opacity-40"
               >
-                {payingNow ? 'Redirecting…' : `Pay ${formatCurrency(total)} with Stripe`}
+                {payingNow ? 'Redirecting to Stripe…' : `Pay ${formatCurrency(total)} with Stripe`}
               </button>
+              <p className="text-[11px] text-ink-400 mt-3">
+                Test mode card: 4242 4242 4242 4242 · any future expiry · any CVC
+              </p>
             </div>
           ) : (
             <>

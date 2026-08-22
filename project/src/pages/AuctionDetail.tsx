@@ -8,6 +8,7 @@ import { Badge } from '@/components/Badge';
 import { ImageZoom, FullscreenViewer } from '@/components/ImageZoom';
 import { BidDrawer } from '@/components/BidDrawer';
 import { tryCloseAuction } from '@/lib/closeAuction';
+import { startStripeCheckout } from '@/lib/stripe';;
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { setPageMeta, resetPageMeta } from '@/lib/pageMeta';
@@ -175,6 +176,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   const handleBuyNow = async () => {
     if (!session?.user) {
       showToast('Sign in to buy now.', 'error');
+      navigate('auth');
       return;
     }
     if (!auction) return;
@@ -182,7 +184,25 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
     try {
       const { data, error } = await supabase.rpc('purchase_buy_now', { p_auction_id: auction.id });
       if (error) throw error;
-      showToast('Reserved — complete payment in Orders.', 'success');
+      const orderId = (data as { order_id?: string })?.order_id;
+      if (!orderId) {
+        showToast('Order created — complete payment in Orders.', 'success');
+        navigate('orders');
+        return;
+      }
+      // Immediately open Stripe Checkout
+      const checkout = await startStripeCheckout(orderId);
+      if (checkout.url) {
+        showToast('Redirecting to secure checkout…', 'success');
+        window.location.href = checkout.url;
+        return;
+      }
+      if (checkout.notConfigured) {
+        showToast('Order reserved. Card payments are not configured yet — see Orders.', 'info');
+        navigate('orders');
+        return;
+      }
+      showToast(checkout.error || 'Checkout could not start. Pay from Orders.', 'error');
       navigate('orders');
     } catch (err: any) {
       showToast(err?.message || 'Buy Now failed.', 'error');
