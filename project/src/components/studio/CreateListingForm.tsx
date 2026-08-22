@@ -176,6 +176,23 @@ export function CreateListingForm({ artist, editingArtwork, onCancel, onSuccess 
     }
     setSubmitting(true);
 
+    // Automated image verification (client probe)
+    if (imageUrl) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error('Image failed to load — use a valid image URL or re-upload'));
+          img.src = imageUrl;
+          setTimeout(() => reject(new Error('Image load timed out')), 12000);
+        });
+      } catch (e: any) {
+        setSubmitting(false);
+        showToast(e.message || 'Invalid image', 'error');
+        return;
+      }
+    }
+
     const evidencePayload =
       verificationMethod === 'evidence_based'
         ? evidenceItems.map((item) => ({ ...item, note: evidenceNote.trim() }))
