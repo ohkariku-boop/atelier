@@ -525,7 +525,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                     {status === 'upcoming' ? 'Starts In' : 'Auction Ends In'}
                   </span>
                 </div>
-                <CountdownTimer endTime={auction.end_time} variant="large" />
+                <CountdownTimer endTime={auction.end_time} variant="large" mode={is_flash || status === 'flash' ? 'flash' : 'default'} />
                 <div className="mt-5 pt-5 border-t border-ink-200 dark:border-ink-700">
                   <div className="flex items-end justify-between">
                     <div>

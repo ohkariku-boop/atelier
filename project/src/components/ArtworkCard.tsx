@@ -39,9 +39,13 @@ export function ArtworkCard({ auction, onClick, onArtistClick }: ArtworkCardProp
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
           {badges}
         </div>
-        {status === 'live' && (
+        {(status === 'live' || status === 'flash' || auction.is_flash) && (
           <div className="absolute bottom-3 left-3">
-            <CountdownTimer endTime={auction.end_time} variant="compact" />
+            <CountdownTimer
+              endTime={auction.end_time}
+              variant="compact"
+              mode={auction.is_flash || status === 'flash' ? 'flash' : 'default'}
+            />
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink-950/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

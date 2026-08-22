@@ -42,7 +42,7 @@ export function AuctionRow({ auction, navigate }: AuctionRowProps) {
       </div>
       <div className="flex-shrink-0">
         {auction.status === 'live' || auction.status === 'flash' ? (
-          <CountdownTimer endTime={auction.end_time} variant="minimal" />
+          <CountdownTimer endTime={auction.end_time} variant="minimal" mode={auction.is_flash || auction.status === 'flash' ? 'flash' : 'default'} />
         ) : auction.status === 'upcoming' ? (
           <span className="text-xs text-ink-400">Starts soon</span>
         ) : (
