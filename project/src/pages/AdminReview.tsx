@@ -33,7 +33,7 @@ interface CatalogRow extends Artwork {
   current_bid?: number | null;
 }
 
-type AdminTab = 'review' | 'catalog' | 'collections' | 'disputes' | 'kyc';
+type AdminTab = 'review' | 'catalog' | 'collections' | 'disputes' | 'kyc' | 'images';
 
 const methodLabel: Record<string, string> = {
   live_video: 'Live process video',
@@ -71,6 +71,9 @@ export function AdminReview({ navigate }: AdminReviewProps) {
   const [disputeBusy, setDisputeBusy] = useState<string | null>(null);
   const [kycQueue, setKycQueue] = useState<any[]>([]);
   const [kycBusy, setKycBusy] = useState<string | null>(null);
+  const [imageAudit, setImageAudit] = useState<any>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [visionOn, setVisionOn] = useState(false);
 
   const loadPending = async () => {
     setLoadingPending(true);
@@ -323,6 +326,17 @@ export function AdminReview({ navigate }: AdminReviewProps) {
             }`}
           >
             KYC / AML
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('images')}
+            className={`text-xs uppercase tracking-wider px-3 py-1.5 border transition-colors ${
+              tab === 'images'
+                ? 'border-ink-900 dark:border-ink-300 bg-ink-900 dark:bg-ink-100 text-white dark:text-ink-900'
+                : 'border-ink-200 dark:border-ink-700 text-ink-600 dark:text-ink-400'
+            }`}
+          >
+            Images
           </button>
           <button
             onClick={() => setTab('review')}
