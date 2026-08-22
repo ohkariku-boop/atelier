@@ -37,7 +37,7 @@ export function Footer({ navigate }: FooterProps) {
               <li onClick={() => navigate('trust/anti-ai')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Anti-AI Guarantee</li>
               <li onClick={() => navigate('trust/verification')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Studio Verification</li>
               <li onClick={() => navigate('trust/escrow')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Escrow Protection</li>
-              <li onClick={() => navigate('trust/payouts')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Payouts (coming soon)</li>
+              <li onClick={() => navigate('trust/payouts')} className="hover:text-ink-900 dark:hover:text-ink-200 cursor-pointer transition-colors">Payouts</li>
             </ul>
           </div>
         </div>

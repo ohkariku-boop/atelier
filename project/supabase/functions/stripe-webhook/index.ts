@@ -144,6 +144,23 @@ Deno.serve(async (req) => {
     }
   }
 
+
+  if (event.type === 'account.updated') {
+    const account = event.data.object as Stripe.Account;
+    const complete = !!(
+      account.details_submitted &&
+      account.charges_enabled &&
+      account.payouts_enabled
+    );
+    const { error } = await supabase
+      .from('profiles')
+      .update({ stripe_onboarding_complete: complete })
+      .eq('stripe_account_id', account.id);
+    if (error) {
+      console.error('account.updated profile sync failed', error);
+    }
+  }
+
   return new Response(JSON.stringify({ received: true }), {
     headers: { 'Content-Type': 'application/json' },
   });

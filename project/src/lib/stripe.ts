@@ -38,6 +38,7 @@ export async function startStripeConnectOnboarding(): Promise<{
   url?: string;
   error?: string;
   notConfigured?: boolean;
+  code?: string;
 }> {
   const { data, error } = await supabase.functions.invoke('stripe-connect-onboard', {
     body: {},
@@ -47,8 +48,50 @@ export async function startStripeConnectOnboarding(): Promise<{
     return { error: error.message || 'Connect onboarding failed' };
   }
   if (data?.code === 'STRIPE_NOT_CONFIGURED') {
-    return { notConfigured: true, error: data.error };
+    return { notConfigured: true, error: data.error, code: data.code };
+  }
+  if (data?.code === 'KYC_REQUIRED') {
+    return { error: data.error || 'Identity verification required', code: 'KYC_REQUIRED' };
   }
   if (data?.url) return { url: data.url as string };
-  return { error: (data as any)?.error || 'No onboarding URL returned' };
+  return { error: (data as any)?.error || 'No onboarding URL returned', code: (data as any)?.code };
+}
+
+export type ConnectStatus = {
+  connected: boolean;
+  onboarding_complete: boolean;
+  charges_enabled?: boolean;
+  payouts_enabled?: boolean;
+  details_submitted?: boolean;
+  requirements_currently_due?: string[];
+  error?: string;
+};
+
+/** Sync Connect account status from Stripe → profiles.stripe_onboarding_complete */
+export async function refreshStripeConnectStatus(): Promise<ConnectStatus> {
+  const { data, error } = await supabase.functions.invoke('stripe-connect-status', {
+    body: {},
+  });
+  if (error) {
+    return {
+      connected: false,
+      onboarding_complete: false,
+      error: error.message,
+    };
+  }
+  if (data?.error) {
+    return {
+      connected: false,
+      onboarding_complete: false,
+      error: data.error,
+    };
+  }
+  return {
+    connected: !!data?.connected,
+    onboarding_complete: !!data?.onboarding_complete,
+    charges_enabled: !!data?.charges_enabled,
+    payouts_enabled: !!data?.payouts_enabled,
+    details_submitted: !!data?.details_submitted,
+    requirements_currently_due: data?.requirements_currently_due || [],
+  };
 }

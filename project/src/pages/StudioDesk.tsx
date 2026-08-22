@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, ShieldCheck, TrendingUp, Gavel, Loader2 } from 'lucide-react';
+import { Plus, ShieldCheck, TrendingUp, Gavel, Loader2, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { AuctionWithDetails, Artist, Order, Artwork } from '@/types';
 import { formatCurrency } from '@/lib/theme';
@@ -11,7 +11,11 @@ import { AuctionRow } from '@/components/studio/AuctionRow';
 import { CreateListingForm } from '@/components/studio/CreateListingForm';
 import { ensureArtistProfile } from '@/lib/artistProvision';
 import { MiniBars } from '@/components/studio/MiniBars';
-import { startStripeConnectOnboarding } from '@/lib/stripe';
+import {
+  startStripeConnectOnboarding,
+  refreshStripeConnectStatus,
+  type ConnectStatus,
+} from '@/lib/stripe';
 
 interface StudioDeskProps {
   navigate: (path: string) => void;
@@ -34,6 +38,9 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
   const [evidenceDrafts, setEvidenceDrafts] = useState<Record<string, string>>({});
   const [submittingEvidence, setSubmittingEvidence] = useState<string | null>(null);
   const [soldArtworkIds, setSoldArtworkIds] = useState<Set<string>>(new Set());
+  const [connectStatus, setConnectStatus] = useState<ConnectStatus | null>(null);
+  const [connectBusy, setConnectBusy] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -131,6 +138,36 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
     }
     load();
   }, [session?.user?.id, profile?.artist_id]);
+
+  // Payout checklist: refresh Connect status on load and after Stripe return
+  useEffect(() => {
+    if (!session?.user?.id || profile?.role !== 'artist') return;
+
+    const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    const stripeFlag = params.get('stripe');
+
+    (async () => {
+      setStatusBusy(true);
+      const st = await refreshStripeConnectStatus();
+      setConnectStatus(st);
+      setStatusBusy(false);
+      if (stripeFlag === 'return') {
+        if (st.onboarding_complete) {
+          showToast('Stripe payouts are connected.', 'success');
+        } else if (st.connected) {
+          showToast('Stripe account linked — finish any remaining requirements in Stripe.', 'info');
+        }
+        // clean query from hash
+        window.location.hash = 'studio';
+      }
+      if (stripeFlag === 'refresh') {
+        showToast('Continue Stripe onboarding when ready.', 'info');
+        window.location.hash = 'studio';
+      }
+    })();
+  }, [session?.user?.id, profile?.role]);
+
+
 
   const activeAuctions = auctions.filter((a) => a.status === 'live' || a.status === 'flash' || a.status === 'upcoming');
   const endedAuctions = auctions.filter((a) => a.status === 'ended');
@@ -277,34 +314,156 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
 
       {view === 'dashboard' ? (
         <>
-          {/* Stripe Connect */}
-          <div className="card-surface p-5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-ink-400 font-semibold mb-1">Payouts</p>
-              <p className="text-sm text-ink-600 dark:text-ink-300">
-                Connect Stripe to receive funds when buyers pay and escrow releases.
-                Without Connect, payments can still be collected by the platform.
-              </p>
+          {/* Seller readiness checklist */}
+          <div className="card-surface p-5 mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-ink-400 font-semibold mb-1">
+                  Seller readiness
+                </p>
+                <p className="text-sm text-ink-600 dark:text-ink-300 max-w-xl">
+                  Complete these steps to list with confidence and receive payouts when buyers pay.
+                </p>
+              </div>
+              {statusBusy && (
+                <span className="text-xs text-ink-400 flex items-center gap-1">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Syncing…
+                </span>
+              )}
             </div>
-            <button
-              type="button"
-              className="btn-primary text-sm whitespace-nowrap"
-              onClick={async () => {
-                const res = await startStripeConnectOnboarding();
-                if (res.url) {
-                  window.location.href = res.url;
-                  return;
-                }
-                showToast(
-                  res.notConfigured
-                    ? 'Stripe keys not set yet. Add STRIPE_SECRET_KEY in Supabase secrets.'
-                    : res.error || 'Could not start Connect onboarding',
-                  res.notConfigured ? 'info' : 'error'
-                );
-              }}
-            >
-              Connect Stripe
-            </button>
+
+            <ol className="space-y-3">
+              {/* Step 1 — Studio */}
+              <li className="flex gap-3 items-start border border-ink-100 dark:border-ink-800 p-3">
+                {artist ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <Circle className="w-5 h-5 text-ink-300 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">1. Studio profile</p>
+                  <p className="text-xs text-ink-500 mt-0.5">
+                    {artist
+                      ? `Linked as ${artist.name}`
+                      : 'Creating your studio profile…'}
+                  </p>
+                </div>
+              </li>
+
+              {/* Step 2 — KYC */}
+              <li className="flex gap-3 items-start border border-ink-100 dark:border-ink-800 p-3">
+                {(profile as any)?.kyc_status === 'verified' ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (profile as any)?.kyc_status === 'pending' ? (
+                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                ) : (
+                  <Circle className="w-5 h-5 text-ink-300 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">2. Identity verification (KYC)</p>
+                  <p className="text-xs text-ink-500 mt-0.5 capitalize">
+                    Status: {(profile as any)?.kyc_status || 'none'}
+                    {(profile as any)?.kyc_status === 'verified'
+                      ? ' — required for Connect payouts and high-value activity'
+                      : ' — required before Stripe payouts'}
+                  </p>
+                  {(profile as any)?.kyc_status !== 'verified' && (
+                    <button
+                      type="button"
+                      className="mt-2 text-xs uppercase tracking-wider font-semibold text-accent-600 hover:underline"
+                      onClick={() => navigate('kyc')}
+                    >
+                      {(profile as any)?.kyc_status === 'pending'
+                        ? 'Check verification status'
+                        : 'Verify identity'}
+                    </button>
+                  )}
+                </div>
+              </li>
+
+              {/* Step 3 — Connect */}
+              <li className="flex gap-3 items-start border border-ink-100 dark:border-ink-800 p-3">
+                {connectStatus?.onboarding_complete || profile?.stripe_onboarding_complete ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                ) : connectStatus?.connected || profile?.stripe_account_id ? (
+                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                ) : (
+                  <Circle className="w-5 h-5 text-ink-300 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">3. Stripe payouts (Connect)</p>
+                  <p className="text-xs text-ink-500 mt-0.5">
+                    {connectStatus?.onboarding_complete || profile?.stripe_onboarding_complete
+                      ? 'Connected — charges and payouts enabled'
+                      : connectStatus?.connected || profile?.stripe_account_id
+                        ? 'Account started — finish onboarding in Stripe'
+                        : 'Not connected yet'}
+                  </p>
+                  {!!(connectStatus?.requirements_currently_due?.length) && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                      Stripe still needs: {connectStatus!.requirements_currently_due!.slice(0, 4).join(', ')}
+                      {(connectStatus!.requirements_currently_due!.length > 4) ? '…' : ''}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {!(connectStatus?.onboarding_complete || profile?.stripe_onboarding_complete) && (
+                      <button
+                        type="button"
+                        disabled={connectBusy}
+                        className="btn-primary text-xs py-1.5 px-3"
+                        onClick={async () => {
+                          setConnectBusy(true);
+                          const res = await startStripeConnectOnboarding();
+                          setConnectBusy(false);
+                          if (res.url) {
+                            window.location.href = res.url;
+                            return;
+                          }
+                          if (res.code === 'KYC_REQUIRED') {
+                            showToast('Complete identity verification before Connect.', 'error');
+                            navigate('kyc');
+                            return;
+                          }
+                          showToast(
+                            res.notConfigured
+                              ? 'Stripe keys not set yet. Add STRIPE_SECRET_KEY in Supabase secrets.'
+                              : res.error || 'Could not start Connect onboarding',
+                            res.notConfigured ? 'info' : 'error'
+                          );
+                        }}
+                      >
+                        {connectBusy
+                          ? 'Opening…'
+                          : connectStatus?.connected || profile?.stripe_account_id
+                            ? 'Continue Stripe setup'
+                            : 'Connect Stripe'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={statusBusy}
+                      className="btn-secondary text-xs py-1.5 px-3"
+                      onClick={async () => {
+                        setStatusBusy(true);
+                        const st = await refreshStripeConnectStatus();
+                        setConnectStatus(st);
+                        setStatusBusy(false);
+                        showToast(
+                          st.onboarding_complete
+                            ? 'Payouts ready'
+                            : st.connected
+                              ? 'Still incomplete in Stripe'
+                              : 'No Connect account yet',
+                          st.onboarding_complete ? 'success' : 'info'
+                        );
+                      }}
+                    >
+                      Refresh status
+                    </button>
+                  </div>
+                </div>
+              </li>
+            </ol>
           </div>
 
           {/* Stats */}
