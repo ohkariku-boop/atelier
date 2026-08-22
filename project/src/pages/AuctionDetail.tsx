@@ -8,7 +8,7 @@ import { Badge } from '@/components/Badge';
 import { ImageZoom, FullscreenViewer } from '@/components/ImageZoom';
 import { BidDrawer } from '@/components/BidDrawer';
 import { tryCloseAuction } from '@/lib/closeAuction';
-import { startStripeCheckout } from '@/lib/stripe';;
+import { startStripeCheckout } from '@/lib/stripe';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { setPageMeta, resetPageMeta } from '@/lib/pageMeta';
