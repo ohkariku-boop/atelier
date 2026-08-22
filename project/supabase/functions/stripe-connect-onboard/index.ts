@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('id, role, stripe_account_id, display_name')
+      .select('id, role, stripe_account_id, display_name, kyc_status, aml_risk_flag')
       .eq('id', userData.user.id)
       .maybeSingle();
 
@@ -63,6 +63,23 @@ Deno.serve(async (req) => {
         status: 403,
         headers: { ...cors, 'Content-Type': 'application/json' },
       });
+    }
+
+    if (profile.aml_risk_flag) {
+      return new Response(JSON.stringify({ error: 'Account restricted', code: 'RESTRICTED' }), {
+        status: 403,
+        headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (profile.kyc_status !== 'verified') {
+      return new Response(
+        JSON.stringify({
+          error: 'Identity verification required before Connect payouts onboarding',
+          code: 'KYC_REQUIRED',
+        }),
+        { status: 403, headers: { ...cors, 'Content-Type': 'application/json' } }
+      );
     }
 
     const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });

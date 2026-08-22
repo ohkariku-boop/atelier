@@ -52,6 +52,9 @@ export function BidDrawer({ auction, onClose, onBidPlaced }: BidDrawerProps) {
         if (kycErr) throw kycErr;
         if (!kycOk) {
           showToast('Bids of $10,000+ require verified KYC. Complete identity verification first.', 'error');
+          if (typeof window !== 'undefined' && window.confirm('Open identity verification now?')) {
+            window.location.hash = 'kyc';
+          }
           setSubmitting(false);
           return;
         }

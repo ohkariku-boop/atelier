@@ -1,4 +1,4 @@
-// Stripe webhook → mark order paid (escrow).
+// Stripe webhook → checkout paid + Identity KYC sync.
 // Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -8,6 +8,63 @@ const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY');
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+async function syncIdentitySession(
+  supabase: ReturnType<typeof createClient>,
+  session: Stripe.Identity.VerificationSession
+) {
+  const userId =
+    session.metadata?.supabase_user_id ||
+    (
+      await supabase
+        .from('profiles')
+        .select('id')
+        .eq('stripe_identity_session_id', session.id)
+        .maybeSingle()
+    ).data?.id;
+
+  if (!userId) {
+    console.error('Identity session: no user for', session.id);
+    return;
+  }
+
+  const status = session.status;
+  const patch: Record<string, unknown> = {
+    stripe_identity_session_id: session.id,
+  };
+
+  if (status === 'verified') {
+    patch.kyc_status = 'verified';
+    patch.kyc_verified_at = new Date().toISOString();
+    patch.kyc_reviewed_at = new Date().toISOString();
+    patch.stripe_identity_last_error = null;
+  } else if (status === 'requires_input') {
+    const code = session.last_error?.code || session.last_error?.reason || 'requires_input';
+    patch.stripe_identity_last_error = code;
+    patch.kyc_status = code === 'consent_declined' ? 'rejected' : 'pending';
+  } else if (status === 'canceled') {
+    patch.kyc_status = 'none';
+  } else if (status === 'processing') {
+    patch.kyc_status = 'pending';
+  }
+
+  await supabase.from('profiles').update(patch).eq('id', userId);
+  await supabase.from('kyc_events').insert({
+    user_id: userId,
+    event_type: `webhook_${status}`,
+    stripe_session_id: session.id,
+    payload: { status, last_error: session.last_error || null },
+  });
+
+  if (status === 'verified') {
+    await supabase.from('notifications').insert({
+      user_id: userId,
+      type: 'kyc_update',
+      title: 'Identity verified',
+      body: 'Your identity was verified. You can place high-value bids.',
+    });
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
@@ -55,24 +112,35 @@ Deno.serve(async (req) => {
           headers: { 'Content-Type': 'application/json' },
         });
       }
-      // Best-effort emails
       try {
         await supabase.functions.invoke('send-receipt-email', { body: { order_id: orderId } });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       try {
         await supabase.functions.invoke('notify-seller-sale', { body: { order_id: orderId } });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }
 
-  if (event.type === 'account.updated') {
-    const account = event.data.object as Stripe.Account;
-    if (account.id) {
-      const complete = !!(account.charges_enabled && account.details_submitted);
-      await supabase
-        .from('profiles')
-        .update({ stripe_onboarding_complete: complete })
-        .eq('stripe_account_id', account.id);
+  // Identity events
+  if (
+    event.type === 'identity.verification_session.verified' ||
+    event.type === 'identity.verification_session.requires_input' ||
+    event.type === 'identity.verification_session.processing' ||
+    event.type === 'identity.verification_session.canceled'
+  ) {
+    const session = event.data.object as Stripe.Identity.VerificationSession;
+    try {
+      await syncIdentitySession(supabase, session);
+    } catch (e) {
+      console.error('Identity sync failed', e);
+      return new Response(JSON.stringify({ error: (e as Error).message }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
   }
 
