@@ -38,6 +38,9 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
   const [evidenceDrafts, setEvidenceDrafts] = useState<Record<string, string>>({});
   const [submittingEvidence, setSubmittingEvidence] = useState<string | null>(null);
   const [soldArtworkIds, setSoldArtworkIds] = useState<Set<string>>(new Set());
+  const [sellerOrders, setSellerOrders] = useState<
+    (Order & { artwork_title: string })[]
+  >([]);
   const [connectStatus, setConnectStatus] = useState<ConnectStatus | null>(null);
   const [connectBusy, setConnectBusy] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
@@ -127,11 +130,18 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
         // Track sold artwork IDs so we don't show them as "ready to auction"
         const { data: soldOrders } = await supabase
           .from('orders')
-          .select('artwork_id')
+          .select('*, artwork:artworks(title)')
           .in('artwork_id', artworkIds)
-          .in('status', ['pending_payment', 'escrow', 'shipped', 'delivered', 'completed']);
+          .in('status', ['pending_payment', 'escrow', 'shipped', 'delivered', 'completed'])
+          .order('created_at', { ascending: false });
 
         setSoldArtworkIds(new Set((soldOrders || []).map((o: any) => o.artwork_id)));
+        setSellerOrders(
+          ((soldOrders || []) as any[]).map((o) => ({
+            ...o,
+            artwork_title: o.artwork?.title || 'Untitled',
+          }))
+        );
       }
 
       setLoading(false);
@@ -536,6 +546,68 @@ export function StudioDesk({ navigate }: StudioDeskProps) {
               />
             </div>
           </div>
+
+
+          {/* Sales & fulfillment */}
+          <section className="mb-10">
+            <h2 className="font-serif text-xl font-semibold mb-1">Sales & fulfillment</h2>
+            <p className="text-sm text-ink-500 mb-4">
+              Orders for your works. Escrow means the buyer has paid; ship the piece when ready.
+            </p>
+            {sellerOrders.length === 0 ? (
+              <div className="card-surface p-6 text-sm text-ink-500">
+                No sales yet. When a collector completes Buy Now or wins an auction, the order appears here.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sellerOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="card-surface p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-serif font-semibold truncate">{order.artwork_title}</p>
+                      <p className="text-xs text-ink-500 mt-0.5">
+                        {(order as any).buyer_name || 'Buyer'}
+                        {(order as any).buyer_email ? ` · ${(order as any).buyer_email}` : ''}
+                      </p>
+                      <p className="text-xs text-ink-400 mt-1 font-mono">
+                        Order {(order as any).receipt_number || order.id.slice(0, 8)}
+                      </p>
+                    </div>
+                    <div className="text-left sm:text-right shrink-0">
+                      <p className="font-mono font-semibold">
+                        {formatCurrency(Number(order.amount) + Number((order as any).shipping_cost || 0))}
+                      </p>
+                      <p
+                        className={`text-[10px] uppercase tracking-wider mt-1 font-semibold ${
+                          order.status === 'escrow'
+                            ? 'text-amber-700 dark:text-amber-400'
+                            : order.status === 'pending_payment'
+                              ? 'text-red-600 dark:text-red-400'
+                              : order.status === 'completed'
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-ink-500'
+                        }`}
+                      >
+                        {order.status === 'escrow'
+                          ? 'In escrow — ship work'
+                          : order.status === 'pending_payment'
+                            ? 'Awaiting buyer payment'
+                            : order.status === 'shipped'
+                              ? 'Shipped'
+                              : order.status === 'delivered'
+                                ? 'Delivered'
+                                : order.status === 'completed'
+                                  ? 'Completed'
+                                  : order.status}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
           {/* Pending seller review */}
           {pendingReview.length > 0 && (
