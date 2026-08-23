@@ -398,7 +398,6 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
           </svg>
         </div>
       )}
-      )}
 
       <div className="absolute inset-0 bg-ink-950 overflow-hidden">
         {slides.length === 0 ? (
