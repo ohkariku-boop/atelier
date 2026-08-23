@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 
 interface GalleryFloorProps {
   navigate: (path: string) => void;
+  onOpenFoyer?: () => void;
 }
 
 type SortOption = 'ending_soon' | 'price_low' | 'price_high' | 'newest' | 'most_bids';
@@ -17,7 +18,7 @@ type StatusFilter = 'all_active' | 'live' | 'flash' | 'ending_soon' | 'buy_now';
 
 const PAGE_SIZE = 15;
 
-export function GalleryFloor({ navigate }: GalleryFloorProps) {
+export function GalleryFloor({ navigate, onOpenFoyer }: GalleryFloorProps) {
   const { session } = useAuth();
   const [auctions, setAuctions] = useState<AuctionWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -288,12 +289,32 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
               Browse physical artworks from verified artists worldwide. Paint, ceramic, charcoal,
               wood — never pixels.
             </p>
+            {onOpenFoyer && (
+              <button
+                type="button"
+                onClick={onOpenFoyer}
+                className="mt-3 text-[10px] uppercase tracking-[0.2em] font-semibold text-accent-600 dark:text-accent-400 hover:underline lg:hidden"
+              >
+                View foyer
+              </button>
+            )}
           </div>
 
-          <p className="text-sm text-ink-500 max-w-sm leading-relaxed hidden lg:block">
-            Browse physical artworks from verified artists worldwide. Paint, ceramic, charcoal,
-            wood — never pixels.
-          </p>
+          <div className="hidden lg:block max-w-sm">
+            <p className="text-sm text-ink-500 leading-relaxed">
+              Browse physical artworks from verified artists worldwide. Paint, ceramic, charcoal,
+              wood — never pixels.
+            </p>
+            {onOpenFoyer && (
+              <button
+                type="button"
+                onClick={onOpenFoyer}
+                className="mt-3 text-[10px] uppercase tracking-[0.2em] font-semibold text-accent-600 dark:text-accent-400 hover:underline"
+              >
+                View foyer
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

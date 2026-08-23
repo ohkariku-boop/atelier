@@ -22,12 +22,21 @@ import { HouseFloor } from '@/pages/HouseFloor';
 import { KycPage } from '@/pages/KycPage';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { EntryFoyer, shouldShowFoyer } from '@/components/EntryFoyer';
+import { EntryFoyer, shouldShowFoyer, markFoyerSeen, requestFoyerReplay } from '@/components/EntryFoyer';
 
 function AppContent() {
   const { route, navigate } = useRouter();
   const { session, loading } = useAuth();
   const [showFoyer, setShowFoyer] = useState(() => shouldShowFoyer());
+
+  const openFoyer = () => {
+    requestFoyerReplay();
+    setShowFoyer(true);
+    if (route.name !== 'gallery') {
+      navigate('gallery');
+    }
+  };
+
 
   // Deep links skip foyer (auction/artist/admin etc.)
   useEffect(() => {
@@ -43,7 +52,14 @@ function AppContent() {
   }
 
   if (showFoyer && route.name === 'gallery') {
-    return <EntryFoyer onComplete={() => setShowFoyer(false)} />;
+    return (
+      <EntryFoyer
+        onComplete={() => {
+          markFoyerSeen();
+          setShowFoyer(false);
+        }}
+      />
+    );
   }
 
   const isProtectedRoute = route.name === 'studio' || route.name === 'orders' || route.name === 'admin' || route.name === 'messages';
@@ -58,7 +74,7 @@ function AppContent() {
         ) : route.name === 'auth' ? (
           <AuthPage navigate={navigate} />
         ) : route.name === 'gallery' ? (
-          <GalleryFloor navigate={navigate} />
+          <GalleryFloor navigate={navigate} onOpenFoyer={openFoyer} />
         ) : route.name === 'auction' ? (
           <AuctionDetail auctionId={route.auctionId} navigate={navigate} />
         ) : route.name === 'artist' ? (

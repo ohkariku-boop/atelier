@@ -275,11 +275,15 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   const beginLift = () => {
     if (lifting) return;
     if (reducedMotion) {
+      markFoyerSeen();
       onComplete();
       return;
     }
     setLifting(true);
-    window.setTimeout(() => onComplete(), 900);
+    window.setTimeout(() => {
+      markFoyerSeen();
+      onComplete();
+    }, 900);
   };
 
   const current = slides[index];
@@ -481,7 +485,40 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   );
 }
 
-/** Always show foyer on a full page load of the gallery (every refresh). */
+const FOYER_SEEN_KEY = 'atelier_foyer_seen';
+const FOYER_FORCE_KEY = 'atelier_foyer_force';
+
+/** Show foyer once per browser tab session; allow explicit replay from Gallery. */
 export function shouldShowFoyer(): boolean {
-  return typeof window !== 'undefined';
+  if (typeof window === 'undefined') return false;
+  try {
+    if (sessionStorage.getItem(FOYER_FORCE_KEY) === '1') {
+      sessionStorage.removeItem(FOYER_FORCE_KEY);
+      return true;
+    }
+    // Returning visitors in this tab (or with prior SPA navigation) skip auto-foyer
+    if (sessionStorage.getItem(FOYER_SEEN_KEY) === '1') return false;
+    // If the browser already has history beyond a fresh landing, treat as returning
+    if (window.history.length > 2 && sessionStorage.getItem(FOYER_SEEN_KEY) === '1') return false;
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+export function markFoyerSeen(): void {
+  try {
+    sessionStorage.setItem(FOYER_SEEN_KEY, '1');
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Call before opening foyer from Gallery "View foyer" link. */
+export function requestFoyerReplay(): void {
+  try {
+    sessionStorage.setItem(FOYER_FORCE_KEY, '1');
+  } catch {
+    /* ignore */
+  }
 }
