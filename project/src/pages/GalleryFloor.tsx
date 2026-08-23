@@ -28,7 +28,6 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [collections, setCollections] = useState<{ id: string; slug: string; title: string; description: string | null }[]>([]);
   const [followedArtistIds, setFollowedArtistIds] = useState<Set<string>>(new Set());
   const [showFollowingOnly, setShowFollowingOnly] = useState(false);
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
@@ -85,7 +84,6 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
       );
       overdue.forEach((a) => tryCloseAuction(a.id));
 
-      // Curated collections (ignore if table not migrated yet)
       if (session?.user?.id) {
         try {
           const { data: fol } = await supabase
@@ -96,16 +94,6 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
         } catch { /* optional */ }
       }
 
-      try {
-        const { data: cols } = await supabase
-          .from('collections')
-          .select('id, slug, title, description')
-          .eq('is_published', true)
-          .order('sort_order');
-        if (cols) setCollections(cols as any);
-      } catch {
-        /* table may not exist yet */
-      }
     }
     load();
   }, []);
@@ -302,38 +290,10 @@ export function GalleryFloor({ navigate }: GalleryFloorProps) {
             </p>
           </div>
 
-          {collections.length > 0 ? (
-            <div className="w-full lg:w-[min(100%,380px)] lg:flex-shrink-0">
-              <p className="text-[10px] uppercase tracking-[0.25em] text-ink-400 font-semibold mb-3">
-                Collections
-              </p>
-              <div className="flex flex-col gap-3">
-                {collections.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => navigate(`collection/${c.slug}`)}
-                    className="card-surface p-5 text-left hover:border-ink-900 dark:hover:border-ink-400 transition-colors w-full"
-                  >
-                    <h3 className="font-serif text-lg font-semibold">{c.title}</h3>
-                    {c.description && (
-                      <p className="text-sm text-ink-500 mt-1 leading-relaxed line-clamp-2">
-                        {c.description}
-                      </p>
-                    )}
-                    <p className="text-[10px] uppercase tracking-widest text-accent-600 dark:text-accent-400 mt-3">
-                      View collection
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-ink-500 max-w-sm leading-relaxed hidden lg:block">
-              Browse physical artworks from verified artists worldwide. Paint, ceramic, charcoal,
-              wood — never pixels.
-            </p>
-          )}
+          <p className="text-sm text-ink-500 max-w-sm leading-relaxed hidden lg:block">
+            Browse physical artworks from verified artists worldwide. Paint, ceramic, charcoal,
+            wood — never pixels.
+          </p>
         </div>
       </div>
 
