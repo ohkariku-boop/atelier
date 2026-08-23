@@ -620,32 +620,34 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                   )}
                 </div>
               ) : (
-                <button
-                  onClick={handleBidClick}
-                  disabled={status === 'upcoming' || status === 'ended' || !(artwork.studio_verified && artwork.verification_method)}
-                  className="btn-accent w-full text-base py-4"
-                >
-                  <span className="flex items-center justify-center gap-2">
-                    {session ? <Gavel className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-                    {!(artwork.studio_verified && artwork.verification_method)
-                      ? 'Pending Studio Verification'
-                      : status === 'upcoming' ? 'Auction Not Started' : status === 'ended' ? 'Auction Ended' : session ? 'Place Bid' : 'Sign In to Bid'}
-                  </span>
-                </button>
-                {artwork.buy_now_price &&
-                  auction.bid_count === 0 &&
-                  (status === 'live' || status === 'flash') &&
-                  artwork.studio_verified &&
-                  artwork.verification_method && (
+                <>
                   <button
-                    type="button"
-                    disabled={buyingNow}
-                    onClick={handleBuyNow}
-                    className="btn-secondary w-full text-sm py-3 mt-2"
+                    onClick={handleBidClick}
+                    disabled={status === 'upcoming' || status === 'ended' || !(artwork.studio_verified && artwork.verification_method)}
+                    className="btn-accent w-full text-base py-4"
                   >
-                    {buyingNow ? 'Processing…' : `Buy Now · ${formatCurrency(Number(artwork.buy_now_price))}`}
+                    <span className="flex items-center justify-center gap-2">
+                      {session ? <Gavel className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                      {!(artwork.studio_verified && artwork.verification_method)
+                        ? 'Pending Studio Verification'
+                        : status === 'upcoming' ? 'Auction Not Started' : status === 'ended' ? 'Auction Ended' : session ? 'Place Bid' : 'Sign In to Bid'}
+                    </span>
                   </button>
-                )}
+                  {artwork.buy_now_price != null &&
+                    Number(artwork.buy_now_price) > 0 &&
+                    (status === 'live' || status === 'flash') &&
+                    artwork.studio_verified &&
+                    artwork.verification_method && (
+                      <button
+                        type="button"
+                        disabled={buyingNow}
+                        onClick={handleBuyNow}
+                        className="btn-secondary w-full text-sm py-3 mt-2"
+                      >
+                        {buyingNow ? 'Processing…' : `Buy Now · ${formatCurrency(Number(artwork.buy_now_price))}`}
+                      </button>
+                    )}
+                </>
               )}
 
               {((artwork as any).condition_grade || (artwork as any).condition_report) && (
