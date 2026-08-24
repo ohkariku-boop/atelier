@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { Palette } from 'lucide-react';
+import { Gavel } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const SLIDE_MS = 2800;
@@ -58,7 +58,7 @@ interface EntryFoyerProps {
 
 /**
  * Session foyer: cycles available art until the visitor chooses
- * "Browse full collection". Paintbrush + viscous ink physics.
+ * "Browse full collection". Auction gavel cursor + ink accent physics.
  */
 export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   const [slides, setSlides] = useState<FoyerSlide[]>([]);
@@ -326,75 +326,73 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
           style={{
             left: brushPos.x,
             top: brushPos.y,
-            transform: 'translate(-18px, -52px)',
+            transform: 'translate(-8px, -42px)',
           }}
           aria-hidden
         >
-          <svg width="72" height="64" viewBox="0 0 72 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* Artist palette (behind brush slightly) */}
-            <ellipse
-              cx="28"
-              cy="38"
-              rx="22"
-              ry="16"
-              transform="rotate(-18 28 38)"
-              fill="#f5efe6"
-              stroke="#2a2118"
+          {/* Auction gavel cursor */}
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* Head (striking block) */}
+            <rect
+              x="6"
+              y="8"
+              width="28"
+              height="14"
+              rx="2.5"
+              transform="rotate(-28 20 15)"
+              fill="#5c4030"
+              stroke="#1a1510"
               strokeWidth="1.4"
             />
-            {/* Thumb hole */}
-            <ellipse
-              cx="38"
-              cy="42"
-              rx="5.5"
-              ry="4.5"
-              transform="rotate(-18 38 42)"
-              fill="#0c0b0a"
-              stroke="#2a2118"
-              strokeWidth="1.1"
+            {/* Head highlight */}
+            <path
+              d="M10 14.5l18-9.5"
+              stroke="#8b6914"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+              opacity="0.55"
+              transform="rotate(-28 20 15)"
             />
-            {/* Paint wells on palette */}
-            <circle cx="18" cy="32" r="3.2" fill="#c41e3a" stroke="#2a2118" strokeWidth="0.6" />
-            <circle cx="26" cy="28" r="3" fill="#1d4ed8" stroke="#2a2118" strokeWidth="0.6" />
-            <circle cx="34" cy="30" r="2.8" fill="#ca8a04" stroke="#2a2118" strokeWidth="0.6" />
-            <circle cx="20" cy="40" r="2.9" fill="#15803d" stroke="#2a2118" strokeWidth="0.6" />
-            <circle cx="28" cy="38" r="2.7" fill="#7c3aed" stroke="#2a2118" strokeWidth="0.6" />
-            <circle cx="15" cy="36" r="2.4" fill="#ea580c" stroke="#2a2118" strokeWidth="0.6" />
-            {/* Mixed pool near tip */}
-            <circle cx="22" cy="45" r="2.2" fill="#be185d" stroke="#2a2118" strokeWidth="0.5" opacity="0.9" />
-
-            {/* Paintbrush over palette */}
-            <g transform="translate(8 0)">
-              {/* Wooden handle */}
-              <path
-                d="M40 4.5c1.35-1.35 3.55-1.35 4.9 0l9.8 9.8c1.35 1.35 1.35 3.55 0 4.9l-2.3 2.3L37.7 6.8 40 4.5z"
-                fill="#b8956c"
-                stroke="#2a2118"
-                strokeWidth="1.25"
-              />
-              <path d="M39.2 7.2l10.2 10.2" stroke="#8a6b45" strokeWidth="1.1" strokeLinecap="round" />
-              <path d="M42.2 6.6l1.1-1.1" stroke="#d4b896" strokeWidth="0.9" strokeLinecap="round" opacity="0.75" />
-              {/* Ferrule */}
-              <path
-                d="M34.2 20.5l5.3 5.3-3.4 3.4-5.3-5.3 3.4-3.4z"
-                fill="#c5ccd4"
-                stroke="#2a2118"
-                strokeWidth="1.25"
-              />
-              <path d="M33.3 23.5l3 3" stroke="#eef1f4" strokeWidth="0.9" strokeLinecap="round" />
-              {/* Bristles */}
-              <path
-                d="M19.5 40c3-5.5 7.6-11.5 12.8-15.2l4.9 4.9c-4.2 4.5-9.5 9.8-14.7 13.8-.95.7-2.25-.15-2-1.4-.05-.2-.35-.95-.45-1.2-.25-.85-.4-1.1-.55-.9z"
-                fill="#f3ebe0"
-                stroke="#2a2118"
-                strokeWidth="1.25"
-              />
-              <path d="M22.8 37.2c2.2-3.5 5.2-7.2 8.4-10" stroke="#c4b8a8" strokeWidth="0.9" strokeLinecap="round" />
-              <path d="M21.2 38.6c2.4-3.7 5.6-7.6 9-10.4" stroke="#d8cfc2" strokeWidth="0.85" strokeLinecap="round" />
-              {/* Wet tip */}
-              <path d="M18.4 41c2.2-.15 4.2-1.1 5.9-2.3" stroke="#c41e3a" strokeWidth="2.5" strokeLinecap="round" />
-              <path d="M19.6 42.1c1.6-.1 3.1-.7 4.4-1.5" stroke="#1d4ed8" strokeWidth="1.8" strokeLinecap="round" opacity="0.9" />
-            </g>
+            {/* Metal band on head */}
+            <rect
+              x="12"
+              y="12"
+              width="16"
+              height="3"
+              rx="0.8"
+              transform="rotate(-28 20 15)"
+              fill="#c5ccd4"
+              stroke="#1a1510"
+              strokeWidth="0.9"
+            />
+            {/* Handle */}
+            <path
+              d="M26 22 L42 48"
+              stroke="#3d2914"
+              strokeWidth="5.5"
+              strokeLinecap="round"
+            />
+            <path
+              d="M26 22 L42 48"
+              stroke="#a67c52"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+            />
+            {/* Handle grain highlight */}
+            <path
+              d="M27.5 24.5 L40.5 45.5"
+              stroke="#d4b896"
+              strokeWidth="0.9"
+              strokeLinecap="round"
+              opacity="0.7"
+            />
+            {/* Ferrule / joint */}
+            <circle cx="26" cy="22" r="3.2" fill="#c5ccd4" stroke="#1a1510" strokeWidth="1.1" />
+            <circle cx="26" cy="22" r="1.4" fill="#8a9098" />
+            {/* Sound block (optional base under tip of motion) */}
+            <ellipse cx="14" cy="48" rx="9" ry="2.2" fill="#2a2118" opacity="0.35" />
+            <rect x="6" y="42" width="16" height="6" rx="1.2" fill="#4a3728" stroke="#1a1510" strokeWidth="1.1" />
+            <rect x="7.5" y="43.2" width="13" height="1.4" rx="0.4" fill="#6b5340" opacity="0.7" />
           </svg>
         </div>
       )}
@@ -428,7 +426,7 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
 
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center">
         <div className="w-14 h-14 bg-ink-50 flex items-center justify-center mb-5 shadow-lg">
-          <Palette className="w-7 h-7 text-ink-900" />
+          <Gavel className="w-7 h-7 text-ink-900" />
         </div>
         <p className="font-serif text-3xl sm:text-5xl text-ink-50 tracking-tight">Atelier</p>
         <p className="mt-3 text-[10px] uppercase tracking-[0.28em] text-ink-300">
