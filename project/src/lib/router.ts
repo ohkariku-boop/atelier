@@ -14,17 +14,20 @@ export type Route =
   | { name: 'verify'; slug: string }
   | { name: 'vault' }
   | { name: 'house'; slug: string }
-  | { name: 'kyc' };
+  | { name: 'kyc' }
+  | { name: 'how-to-buy' }
+  | { name: 'sell' }
+  | { name: 'journal'; slug?: string }
+  | { name: 'sales' }
+  | { name: 'sale'; slug: string }
+  | { name: 'my-bids' }
+  | { name: 'results' };
 
 function parseHash(): Route {
   const hash = window.location.hash.slice(1);
-  const parts = hash.split('/');
-  if (parts[0] === 'auction' && parts[1]) {
-    return { name: 'auction', auctionId: parts[1] };
-  }
-  if (parts[0] === 'artist' && parts[1]) {
-    return { name: 'artist', artistId: parts[1] };
-  }
+  const parts = hash.split('/').filter(Boolean);
+  if (parts[0] === 'auction' && parts[1]) return { name: 'auction', auctionId: parts[1] };
+  if (parts[0] === 'artist' && parts[1]) return { name: 'artist', artistId: parts[1] };
   if (parts[0] === 'studio') return { name: 'studio' };
   if (parts[0] === 'orders') return { name: 'orders' };
   if (parts[0] === 'auth') return { name: 'auth' };
@@ -36,6 +39,13 @@ function parseHash(): Route {
   if (parts[0] === 'vault') return { name: 'vault' };
   if (parts[0] === 'house' && parts[1]) return { name: 'house', slug: parts[1] };
   if (parts[0] === 'kyc') return { name: 'kyc' };
+  if (parts[0] === 'how-to-buy') return { name: 'how-to-buy' };
+  if (parts[0] === 'sell') return { name: 'sell' };
+  if (parts[0] === 'journal') return { name: 'journal', slug: parts[1] };
+  if (parts[0] === 'sales') return { name: 'sales' };
+  if (parts[0] === 'sale' && parts[1]) return { name: 'sale', slug: parts[1] };
+  if (parts[0] === 'my-bids') return { name: 'my-bids' };
+  if (parts[0] === 'results') return { name: 'results' };
   return { name: 'gallery' };
 }
 

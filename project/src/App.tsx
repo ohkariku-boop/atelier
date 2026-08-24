@@ -20,6 +20,13 @@ import { VerifyPage } from '@/pages/VerifyPage';
 import { CollectorVault } from '@/pages/CollectorVault';
 import { HouseFloor } from '@/pages/HouseFloor';
 import { KycPage } from '@/pages/KycPage';
+import { HowToBuy } from '@/pages/HowToBuy';
+import { SellPage } from '@/pages/SellPage';
+import { JournalPage } from '@/pages/JournalPage';
+import { SalesCalendar } from '@/pages/SalesCalendar';
+import { SaleDetailPage } from '@/pages/SaleDetailPage';
+import { MyBidsPage } from '@/pages/MyBidsPage';
+import { ResultsPage } from '@/pages/ResultsPage';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { EntryFoyer, shouldShowFoyer, markFoyerSeen, requestFoyerReplay } from '@/components/EntryFoyer';
@@ -99,6 +106,20 @@ function AppContent() {
           <HouseFloor slug={route.slug} navigate={navigate} />
         ) : route.name === 'kyc' ? (
           <KycPage navigate={navigate} />
+        ) : route.name === 'how-to-buy' ? (
+          <HowToBuy navigate={navigate} />
+        ) : route.name === 'sell' ? (
+          <SellPage navigate={navigate} />
+        ) : route.name === 'journal' ? (
+          <JournalPage navigate={navigate} slug={route.slug} />
+        ) : route.name === 'sales' ? (
+          <SalesCalendar navigate={navigate} />
+        ) : route.name === 'sale' ? (
+          <SaleDetailPage slug={route.slug} navigate={navigate} />
+        ) : route.name === 'my-bids' ? (
+          <MyBidsPage navigate={navigate} />
+        ) : route.name === 'results' ? (
+          <ResultsPage navigate={navigate} />
         ) : null}
       </main>
       <Footer navigate={navigate} />

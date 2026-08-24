@@ -314,6 +314,15 @@ export function GalleryFloor({ navigate, onOpenFoyer }: GalleryFloorProps) {
                 View foyer
               </button>
             )}
+            <div className="mt-4 flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.18em] font-semibold">
+              <button type="button" onClick={() => navigate('sales')} className="text-ink-500 hover:text-ink-900 dark:hover:text-ink-100">Sales</button>
+              <span className="text-ink-300">·</span>
+              <button type="button" onClick={() => navigate('results')} className="text-ink-500 hover:text-ink-900 dark:hover:text-ink-100">Results</button>
+              <span className="text-ink-300">·</span>
+              <button type="button" onClick={() => navigate('how-to-buy')} className="text-ink-500 hover:text-ink-900 dark:hover:text-ink-100">How to buy</button>
+              <span className="text-ink-300">·</span>
+              <button type="button" onClick={() => navigate('journal')} className="text-ink-500 hover:text-ink-900 dark:hover:text-ink-100">Journal</button>
+            </div>
           </div>
         </div>
       </div>

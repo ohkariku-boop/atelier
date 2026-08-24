@@ -1,4 +1,4 @@
-import { Moon, Sun, Palette, LayoutGrid, Package, BarChart3, LogOut, User as UserIcon, ShieldCheck, MessageSquare } from 'lucide-react';
+import { Moon, Sun, Gavel, LayoutGrid, Package, BarChart3, LogOut, User as UserIcon, ShieldCheck, MessageSquare, Calendar, BookOpen, Search } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -16,22 +16,22 @@ export function Header({ route, navigate }: HeaderProps) {
   const { currency, setCurrency } = useCurrency();
 
   const navItems = [
-    { name: 'gallery', label: 'Gallery Floor', icon: LayoutGrid, path: '' },
+    { name: 'gallery', label: 'Floor', icon: LayoutGrid, path: '' },
+    { name: 'sales', label: 'Sales', icon: Calendar, path: 'sales' },
+    { name: 'results', label: 'Results', icon: Search, path: 'results' },
+    { name: 'journal', label: 'Journal', icon: BookOpen, path: 'journal' },
     ...(profile?.role === 'artist'
-      ? [{ name: 'studio', label: 'Studio Desk', icon: BarChart3, path: 'studio' }]
+      ? [{ name: 'studio', label: 'Studio', icon: BarChart3, path: 'studio' }]
       : []),
     ...(profile?.role === 'admin'
       ? [{ name: 'admin', label: 'Admin', icon: ShieldCheck, path: 'admin' }]
       : []),
-    { name: 'orders', label: 'Orders', icon: Package, path: 'orders' },
     ...(session
       ? [
-          { name: 'vault', label: 'Vault', icon: Package, path: 'vault' },
-          { name: 'kyc', label: 'KYC', icon: Package, path: 'kyc' },
+          { name: 'my-bids', label: 'My Bids', icon: Package, path: 'my-bids' },
+          { name: 'orders', label: 'Orders', icon: Package, path: 'orders' },
+          { name: 'messages', label: 'Messages', icon: MessageSquare, path: 'messages' },
         ]
-      : []),
-    ...(session
-      ? [{ name: 'messages', label: 'Messages', icon: MessageSquare, path: 'messages' }]
       : []),
   ];
 
@@ -49,7 +49,7 @@ export function Header({ route, navigate }: HeaderProps) {
             className="flex items-center gap-2.5 group"
           >
             <div className="w-9 h-9 bg-ink-900 dark:bg-ink-50 flex items-center justify-center transition-transform group-hover:scale-105">
-              <Palette className="w-5 h-5 text-ink-50 dark:text-ink-900" />
+              <Gavel className="w-5 h-5 text-ink-50 dark:text-ink-900" />
             </div>
             <div className="flex flex-col leading-none">
               <span className="font-serif text-lg font-semibold tracking-tight">Atelier</span>

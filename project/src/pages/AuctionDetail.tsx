@@ -3,6 +3,7 @@ import { ArrowLeft, Gavel, ShieldCheck, Clock, TrendingUp, Play, Maximize2, Pack
 import { supabase } from '@/lib/supabase';
 import type { AuctionWithDetails, Bid } from '@/types';
 import { formatCurrency, timeAgo, SHIPPING_RATES } from '@/lib/theme';
+import { getEstimateRange } from '@/lib/estimates';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { Badge } from '@/components/Badge';
 import { ImageZoom, FullscreenViewer } from '@/components/ImageZoom';
@@ -305,6 +306,7 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   }
 
   const { artwork, artist, status, is_flash } = auction;
+  const estimate = getEstimateRange(artwork);
   const reserveMet = auction.current_bid >= artwork.reserve_price;
   const shipping = SHIPPING_RATES[artwork.shipping_tier];
   const isOwner = !!session && session.user.id === artwork.user_id;
@@ -537,6 +539,10 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                       </p>
                     </div>
                     <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-1">Estimate</p>
+                      <p className="font-mono text-sm font-semibold tabular-nums text-ink-600 dark:text-ink-300 mb-3">
+                        {formatCurrency(estimate.low)} – {formatCurrency(estimate.high)}
+                      </p>
                       <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-1">Reserve</p>
                       <p className={`text-sm font-semibold flex items-center gap-1 ${reserveMet ? 'text-emerald-600 dark:text-emerald-400' : 'text-gold-600'}`}>
                         <ShieldCheck className="w-3.5 h-3.5" />
@@ -613,7 +619,6 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                       <p className="text-sm font-semibold">
                         {auction.outcome === 'sold' ? 'Sold' :
                          auction.outcome === 'declined' ? 'Sale Declined' :
-                         auction.outcome === 'cancelled' ? 'Listing Cancelled' :
                          'No Bids Received'}
                       </p>
                     </div>
@@ -647,6 +652,13 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                         {buyingNow ? 'Processing…' : `Buy Now · ${formatCurrency(Number(artwork.buy_now_price))}`}
                       </button>
                     )}
+                  <button
+                    type="button"
+                    onClick={() => navigate(session ? 'messages' : 'auth')}
+                    className="w-full mt-2 text-xs uppercase tracking-widest text-ink-500 hover:text-ink-900 dark:hover:text-ink-100 border border-ink-200 dark:border-ink-700 py-2.5 transition-colors"
+                  >
+                    Ask about this lot
+                  </button>
                 </>
               )}
 

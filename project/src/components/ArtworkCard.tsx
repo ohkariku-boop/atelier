@@ -3,6 +3,7 @@ import type { AuctionWithDetails } from '@/types';
 import { formatCurrency } from '@/lib/theme';
 import { CountdownTimer } from './CountdownTimer';
 import { Badge } from './Badge';
+import { getEstimateRange } from '@/lib/estimates';
 
 interface ArtworkCardProps {
   auction: AuctionWithDetails;
@@ -13,6 +14,10 @@ interface ArtworkCardProps {
 export function ArtworkCard({ auction, onClick, onArtistClick }: ArtworkCardProps) {
   const { artwork, artist, status, is_flash } = auction;
   const reserveMet = auction.current_bid >= artwork.reserve_price;
+  const estimate = getEstimateRange(artwork);
+  const isEnded = status === 'ended';
+  const isSold = isEnded && auction.outcome === 'sold';
+  const isPassed = isEnded && (auction.outcome === 'no_bids' || auction.outcome === 'declined' || !auction.outcome);
 
   const badges: React.ReactNode[] = [];
   if (status === 'live' && !is_flash) badges.push(<Badge key="live" variant="live" />);
@@ -85,16 +90,24 @@ export function ArtworkCard({ auction, onClick, onArtistClick }: ArtworkCardProp
         <div className="flex items-end justify-between pt-3 border-t border-ink-100 dark:border-ink-800">
           <div>
             <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-0.5">
-              {auction.bid_count > 0 ? 'Current Bid' : 'Starting Bid'}
+              {isSold ? 'Sold' : isPassed ? 'Result' : auction.bid_count > 0 ? 'Current Bid' : 'Starting Bid'}
             </p>
             <p className="font-mono text-lg font-bold tabular-nums">
-              {formatCurrency(auction.bid_count > 0 ? auction.current_bid : artwork.starting_bid)}
+              {isSold
+                ? formatCurrency(auction.current_bid)
+                : isPassed
+                  ? 'Passed'
+                  : formatCurrency(auction.bid_count > 0 ? auction.current_bid : artwork.starting_bid)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-0.5">Reserve</p>
-            <p className={`text-xs font-semibold ${reserveMet ? 'text-emerald-600 dark:text-emerald-400' : 'text-ink-500'}`}>
-              {reserveMet ? 'Met' : 'Pending'}
+            <p className="text-[10px] uppercase tracking-widest text-ink-400 mb-0.5">
+              {isEnded ? 'Reserve' : 'Estimate'}
+            </p>
+            <p className={`text-xs font-semibold ${isEnded ? (reserveMet ? 'text-emerald-600 dark:text-emerald-400' : 'text-ink-500') : 'text-ink-600 dark:text-ink-300 font-mono'}`}>
+              {isEnded
+                ? (reserveMet ? 'Met' : 'Not met')
+                : `${formatCurrency(estimate.low)} – ${formatCurrency(estimate.high)}`}
             </p>
           </div>
         </div>

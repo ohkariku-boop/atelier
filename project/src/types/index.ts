@@ -33,6 +33,10 @@ export interface Artwork {
   reserve_price: number;
   starting_bid: number;
   buy_now_price?: number | null;
+  estimate_low?: number | null;
+  estimate_high?: number | null;
+  lot_number?: number | null;
+  sale_id?: string | null;
   public_verify_slug?: string | null;
   year_created?: string | null;
   condition_grade?: string | null;
