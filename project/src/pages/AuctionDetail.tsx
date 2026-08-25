@@ -34,6 +34,8 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
   const [editingReserve, setEditingReserve] = useState(false);
   const [reserveInput, setReserveInput] = useState('');
   const [liked, setLiked] = useState(false);
+  const [watched, setWatched] = useState(false);
+  const [watchBusy, setWatchBusy] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [viewCounted, setViewCounted] = useState(false);
   const [displayViewCount, setDisplayViewCount] = useState(0);
@@ -172,7 +174,27 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
       .then(({ data }) => setLiked(!!data));
   }, [auction?.artwork.id, session?.user?.id]);
 
-  
+  // Watchlist status for this auction
+  useEffect(() => {
+    if (!auction?.id || !session?.user?.id) {
+      setWatched(false);
+      return;
+    }
+    supabase
+      .from('lot_watches')
+      .select('auction_id')
+      .eq('auction_id', auction.id)
+      .eq('user_id', session.user.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn('lot_watches read:', error.message);
+          return;
+        }
+        setWatched(!!data);
+      });
+  }, [auction?.id, session?.user?.id]);
+
   const [buyingNow, setBuyingNow] = useState(false);
   const handleBuyNow = async () => {
     if (!session?.user) {
@@ -209,6 +231,43 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
       showToast(err?.message || 'Buy Now failed.', 'error');
     } finally {
       setBuyingNow(false);
+    }
+  };
+
+
+  const toggleWatch = async () => {
+    if (!auction?.id) return;
+    if (!session?.user?.id) {
+      showToast('Sign in to watch a lot.', 'info');
+      navigate('auth');
+      return;
+    }
+    if (watchBusy) return;
+    setWatchBusy(true);
+    const was = watched;
+    setWatched(!was);
+    try {
+      if (was) {
+        const { error } = await supabase
+          .from('lot_watches')
+          .delete()
+          .eq('auction_id', auction.id)
+          .eq('user_id', session.user.id);
+        if (error) throw error;
+        showToast('Removed from watchlist.', 'success');
+      } else {
+        const { error } = await supabase.from('lot_watches').insert({
+          auction_id: auction.id,
+          user_id: session.user.id,
+        });
+        if (error) throw error;
+        showToast('Watching this lot.', 'success');
+      }
+    } catch (err: any) {
+      setWatched(was);
+      showToast(err?.message || 'Could not update watchlist.', 'error');
+    } finally {
+      setWatchBusy(false);
     }
   };
 
@@ -403,15 +462,28 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
             }}
           >
             <ImageZoom src={artwork.image_url} alt={artwork.title} className="w-full h-full" onOpenFullscreen={() => setFullscreen(true)} />
-            <button
-              onClick={toggleLike}
-              aria-label={liked ? 'Unlike' : 'Like'}
-              className="absolute top-3 left-3 p-2 bg-ink-950/60 backdrop-blur-sm rounded-full transition-transform active:scale-90"
-            >
-              <Heart
-                className={`w-5 h-5 transition-colors ${liked ? 'fill-red-500 text-red-500' : 'text-ink-50'}`}
-              />
-            </button>
+            <div className="absolute top-3 left-3 flex gap-2">
+              <button
+                onClick={toggleLike}
+                aria-label={liked ? 'Unlike' : 'Like'}
+                className="p-2 bg-ink-950/60 backdrop-blur-sm rounded-full transition-transform active:scale-90"
+              >
+                <Heart
+                  className={`w-5 h-5 transition-colors ${liked ? 'fill-red-500 text-red-500' : 'text-ink-50'}`}
+                />
+              </button>
+              <button
+                onClick={toggleWatch}
+                disabled={watchBusy}
+                aria-label={watched ? 'Unwatch lot' : 'Watch lot'}
+                title={watched ? 'Remove from watchlist' : 'Watch this lot'}
+                className="p-2 bg-ink-950/60 backdrop-blur-sm rounded-full transition-transform active:scale-90"
+              >
+                <Eye
+                  className={`w-5 h-5 transition-colors ${watched ? 'text-accent-400 fill-accent-400/30' : 'text-ink-50'}`}
+                />
+              </button>
+            </div>
             {prevAuctionId && (
               <button
                 onClick={() => navigate(`auction/${prevAuctionId}`)}
@@ -451,9 +523,18 @@ export function AuctionDetail({ auctionId, navigate }: AuctionDetailProps) {
                 {likeCount}
               </span>
               <span className="flex items-center gap-1">
-                <Eye className="w-3.5 h-3.5" />
+                <Eye className={`w-3.5 h-3.5 ${watched ? 'text-accent-600' : ''}`} />
                 {displayViewCount}
               </span>
+              {watched && (
+                <button
+                  type="button"
+                  onClick={toggleWatch}
+                  className="text-[10px] uppercase tracking-wider text-accent-600 hover:underline"
+                >
+                  Watching
+                </button>
+              )}
             </div>
           </div>
 
