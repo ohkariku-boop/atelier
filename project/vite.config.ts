@@ -2,9 +2,13 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
-// https://vitejs.dev/config/
+// Vercel = site at domain root. GitHub Pages = /atelier/ subpath.
+const base =
+  process.env.VITE_BASE_PATH ||
+  (process.env.VERCEL ? '/' : '/atelier/');
+
 export default defineConfig({
-  base: '/atelier/',
+  base,
   plugins: [react()],
   resolve: {
     alias: {
