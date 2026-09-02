@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Gavel } from 'lucide-react';
+import { BrandMark } from '@/components/BrandMark';
 import { supabase } from '@/lib/supabase';
 
 const SLIDE_MS = 2800;
@@ -236,7 +236,7 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
 
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center">
         <div className="w-14 h-14 bg-ink-50 flex items-center justify-center mb-5 shadow-lg">
-          <Gavel className="w-7 h-7 text-ink-900" />
+          <BrandMark className="w-7 h-7 text-ink-900" />
         </div>
         <p className="font-serif text-3xl sm:text-5xl text-ink-50 tracking-tight">Atelier</p>
         <p className="mt-3 text-[10px] uppercase tracking-[0.28em] text-ink-300">

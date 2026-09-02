@@ -1,9 +1,10 @@
-import { Moon, Sun, Gavel, LayoutGrid, Package, BarChart3, LogOut, User as UserIcon, ShieldCheck, MessageSquare, Calendar, BookOpen, Search } from 'lucide-react';
+import { Moon, Sun, LayoutGrid, Package, BarChart3, LogOut, User as UserIcon, ShieldCheck, MessageSquare, Calendar, BookOpen, Search } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { NotificationBell } from '@/components/NotificationBell';
 import { useCurrency, CURRENCY_OPTIONS } from '@/context/CurrencyContext';
 import { PushOptIn } from '@/components/PushOptIn';
+import { BrandMark } from '@/components/BrandMark';
 
 interface HeaderProps {
   route: { name: string };
@@ -49,7 +50,7 @@ export function Header({ route, navigate }: HeaderProps) {
             className="flex items-center gap-2.5 group"
           >
             <div className="w-9 h-9 bg-ink-900 dark:bg-ink-50 flex items-center justify-center transition-transform group-hover:scale-105">
-              <Gavel className="w-5 h-5 text-ink-50 dark:text-ink-900" />
+              <BrandMark className="w-5 h-5 text-ink-50 dark:text-ink-900" />
             </div>
             <div className="flex flex-col leading-none">
               <span className="font-serif text-lg font-semibold tracking-tight">Atelier</span>
