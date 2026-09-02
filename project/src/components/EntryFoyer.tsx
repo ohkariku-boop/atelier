@@ -1,30 +1,8 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Gavel } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const SLIDE_MS = 2800;
-
-/** Viscosity model: higher = thicker ink (more drag, slower spread). */
-const VISCOSITY = 0.82;
-const FRICTION = 0.88 + VISCOSITY * 0.08; // ~0.94
-const GRAVITY = 0.12 * (1.15 - VISCOSITY * 0.3);
-const SPREAD = 0.012 * (1.1 - VISCOSITY * 0.4);
-const MAX_PARTICLES = 55;
-const MIN_MOVE_INTERVAL = 55;
-
-/** Saturated ink / pigment colors for splatters */
-const INK_PALETTE = [
-  '#c41e3a', // cardinal red
-  '#1d4ed8', // cobalt
-  '#ca8a04', // ochre gold
-  '#0f766e', // viridian
-  '#7c3aed', // violet
-  '#ea580c', // cadmium orange
-  '#be185d', // magenta
-  '#0369a1', // cerulean
-  '#15803d', // sap green
-  '#9f1239', // alizarin
-];
 
 export type FoyerSlide = {
   id: string;
@@ -35,22 +13,6 @@ export type FoyerSlide = {
   status?: string;
 };
 
-type InkDrop = {
-  id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  targetSize: number;
-  rot: number;
-  spin: number;
-  opacity: number;
-  life: number;
-  maxLife: number;
-  variant: number;
-  color: string;
-};
 
 interface EntryFoyerProps {
   onComplete: () => void;
@@ -58,7 +20,7 @@ interface EntryFoyerProps {
 
 /**
  * Session foyer: cycles available art until the visitor chooses
- * "Browse full collection". Auction gavel cursor + ink accent physics.
+ * "Browse full collection". Auction gavel cursor (no trail).
  */
 export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   const [slides, setSlides] = useState<FoyerSlide[]>([]);
@@ -67,148 +29,16 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
   const [ready, setReady] = useState(false);
   const [brushPos, setBrushPos] = useState<{ x: number; y: number } | null>(null);
   const [brushVisible, setBrushVisible] = useState(false);
-  const [drops, setDrops] = useState<InkDrop[]>([]);
-
-  const dropsRef = useRef<InkDrop[]>([]);
-  const rafRef = useRef<number>(0);
-  const lastSpawnRef = useRef(0);
-  const idRef = useRef(0);
 
   const reducedMotion = useMemo(() => {
     if (typeof window === 'undefined') return false;
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }, []);
 
-  // Physics loop
-  useEffect(() => {
-    if (reducedMotion) return;
-
-    const tick = () => {
-      const prev = dropsRef.current;
-      if (prev.length === 0) {
-        rafRef.current = requestAnimationFrame(tick);
-        return;
-      }
-
-      const next: InkDrop[] = [];
-      for (const d of prev) {
-        // Viscous drag on velocity
-        let vx = d.vx * FRICTION;
-        let vy = d.vy * FRICTION + GRAVITY;
-
-        // Near-stop threshold — ink “sets”
-        if (Math.hypot(vx, vy) < 0.04) {
-          vx = 0;
-          vy = 0;
-        }
-
-        const x = d.x + vx;
-        const y = d.y + vy;
-
-        // Slow organic spread (thick ink blooms slowly)
-        const size =
-          d.size + (d.targetSize - d.size) * SPREAD * 8 + (vy > 0.2 ? 0.02 : 0);
-
-        const rot = d.rot + d.spin;
-        const spin = d.spin * 0.92;
-        const life = d.life + 1;
-        const fadeStart = d.maxLife * 0.55;
-        const opacity =
-          life > fadeStart
-            ? d.opacity * Math.max(0, 1 - (life - fadeStart) / (d.maxLife - fadeStart))
-            : d.opacity;
-
-        if (life < d.maxLife && opacity > 0.02) {
-          next.push({
-            ...d,
-            x,
-            y,
-            vx,
-            vy,
-            size: Math.min(size, d.targetSize * 1.05),
-            rot,
-            spin,
-            life,
-            opacity,
-          });
-        }
-      }
-
-      dropsRef.current = next;
-      setDrops(next);
-      rafRef.current = requestAnimationFrame(tick);
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [reducedMotion]);
-
-  const spawnDrops = useCallback(
-    (x: number, y: number, opts: { burst: number; speedX?: number; speedY?: number }) => {
-      if (reducedMotion) return;
-      const { burst, speedX = 0, speedY = 0 } = opts;
-      const batch: InkDrop[] = [];
-
-      for (let i = 0; i < burst; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        // Thick ink: low initial velocity, tight spray cone on strokes
-        const eject = (0.4 + Math.random() * 1.8) * (burst > 3 ? 1.6 : 1);
-        const inherit = 0.25;
-        batch.push({
-          id: ++idRef.current,
-          x: x + (Math.random() - 0.5) * 6,
-          y: y + (Math.random() - 0.5) * 6,
-          vx: Math.cos(angle) * eject + speedX * inherit,
-          vy: Math.sin(angle) * eject * 0.7 + speedY * inherit + Math.random() * 0.3,
-          size: 2 + Math.random() * 4,
-          targetSize: 10 + Math.random() * (burst > 3 ? 34 : 18),
-          rot: Math.random() * 360,
-          spin: (Math.random() - 0.5) * 2,
-          opacity: 0.55 + Math.random() * 0.4,
-          life: 0,
-          maxLife: 90 + Math.floor(Math.random() * 50),
-          variant: Math.floor(Math.random() * 3),
-          color: INK_PALETTE[Math.floor(Math.random() * INK_PALETTE.length)],
-        });
-      }
-
-      const merged = [...dropsRef.current, ...batch].slice(-MAX_PARTICLES);
-      dropsRef.current = merged;
-      setDrops(merged);
-    },
-    [reducedMotion]
-  );
-
-  const onPointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      setBrushPos({ x: e.clientX, y: e.clientY });
-      setBrushVisible(true);
-      if (reducedMotion) return;
-
-      const now = performance.now();
-      const tipX = e.clientX + 4;
-      const tipY = e.clientY - 4;
-      const speed = Math.hypot(e.movementX, e.movementY);
-
-      if (speed > 2.5 && now - lastSpawnRef.current > MIN_MOVE_INTERVAL) {
-        lastSpawnRef.current = now;
-        spawnDrops(tipX, tipY, {
-          burst: speed > 14 ? 3 : 1,
-          speedX: e.movementX * 0.15,
-          speedY: e.movementY * 0.15,
-        });
-      }
-    },
-    [reducedMotion, spawnDrops]
-  );
-
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      if ((e.target as HTMLElement).closest('button')) return;
-      spawnDrops(e.clientX, e.clientY, { burst: 10 });
-    },
-    [spawnDrops]
-  );
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    setBrushPos({ x: e.clientX, y: e.clientY });
+    setBrushVisible(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,29 +125,9 @@ export function EntryFoyer({ onComplete }: EntryFoyerProps) {
       aria-label="Welcome to Atelier"
       aria-modal="true"
       onPointerMove={onPointerMove}
-      onPointerDown={onPointerDown}
       onPointerLeave={() => setBrushVisible(false)}
       onPointerEnter={() => setBrushVisible(true)}
     >
-      <div className="atelier-foyer__ink-layer pointer-events-none fixed inset-0 z-[105]" aria-hidden>
-        {drops.map((d) => (
-          <span
-            key={d.id}
-            className={`atelier-foyer__splat atelier-foyer__splat--${d.variant} atelier-foyer__splat--viscous`}
-            style={{
-              left: d.x,
-              top: d.y,
-              width: d.size,
-              height: d.size * (0.72 + d.variant * 0.08 + Math.min(0.35, Math.abs(d.vy) * 0.08)),
-              opacity: d.opacity,
-              transform: `translate(-50%, -50%) rotate(${d.rot}deg)`,
-              background: `radial-gradient(circle at 35% 30%, ${d.color}ee 0%, ${d.color} 55%, ${d.color}99 100%)`,
-              boxShadow: `2px 3px 0 -1px ${d.color}88, -3px 1px 0 -1px ${d.color}66, 1px -2px 0 -1px ${d.color}55`,
-            }}
-          />
-        ))}
-      </div>
-
       {brushPos && (
         <div
           className={`atelier-foyer__brush pointer-events-none fixed z-[110] ${
